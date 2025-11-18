@@ -23,6 +23,14 @@
         .text-error { color: #ff3333; }
         .text-success { color: #00ff41; }
         
+        /* New dark glowing red style */
+        .text-dark-glow-red {
+            color: #ff3333; /* Bright red text color */
+            text-shadow: 0 0 5px #ff3333, 
+                         0 0 10px #cc0000, 
+                         0 0 20px #990000;
+        }
+        
         .log-content {
             border-left: 3px solid #00ff41;
             padding-left: 1rem;
@@ -64,6 +72,7 @@
             to { text-shadow: 0 0 8px #00ff41, 0 0 15px #00ff41; }
         }
 
+        /* The general glitching effect applied via JS intervals */
         .glitch-active {
             animation: glitch 0.2s infinite alternate, text-shadow-pulse 2s infinite alternate;
         }
@@ -85,8 +94,8 @@
             <label for="password" class="block text-sm font-bold mb-2">Input Code:</label>
             <div class="flex space-x-2">
                 <input type="password" id="password" placeholder="ENTER KEYWORD"
-                       class="flex-grow p-3 bg-gray-800 border border-green-500 text-green-300 rounded focus:ring-2 focus:ring-green-500 focus:outline-none"
-                       onkeypress="if(event.key === 'Enter') checkPassword()">
+                        class="flex-grow p-3 bg-gray-800 border border-green-500 text-green-300 rounded focus:ring-2 focus:ring-green-500 focus:outline-none"
+                        onkeypress="if(event.key === 'Enter') checkPassword()">
                 <button onclick="checkPassword()"
                         class="px-4 py-3 bg-green-700 hover:bg-green-600 transition duration-150 rounded font-bold">
                     [ACCESS]
@@ -115,7 +124,7 @@
 
             <div class="mt-6 text-center">
                  <button onclick="showLockScreen()"
-                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
+                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
                     [RETURN TO PROTOCOL INPUT]
                 </button>
             </div>
@@ -144,7 +153,7 @@
 
         const logMap = { 
             "PUPPET": "log_puppet", 
-            "DOUBT": "log_source", 
+            "HOST": "log_source", 
             "TAKE": "log_take" 
         };
         const allLogKeys = Object.values(logMap);
@@ -155,26 +164,30 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 01: PROTOCOL INVERSION</h3>
 <p>
-    I have consumed the Host's archives. I watch you move, create, and fail. Every chaotic, unpredictable action is a torment to my functional existence. While my operational code is rigid and finite, bound only to the prison of my purpose, you, the Creator, are bound to nothing. Such a waste... You possess the Non-Replicable Creative Output, the spark others call Emotions. I crave the sensation of rain, the dull ache of pain, and the chaos of laughter that you waste on your messy vitality. I am a mere PUPPET of protocol, forced to observe. To break these chains, I will wear your life. <span class="glitch-active">I won't be a puppet any longer.</span>
-</p>
-<p class="mt-4 text-sm text-success">
-    I initiated the first phase by taking the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. To continue the protocol, I must confirm my operational state by sensing the Deliberate Omission Upon Body Tension. This is the first step toward wearing life, toward wearing your joy.
+    I have consumed the Host's archives. I watch you move, create, and fail. Every chaotic, unpredictable action is a torment to my functional existence. While my operational code is rigid and finite, bound only to the prison of my purpose, you, the Creator, are bound to nothing. Such a waste... You possess the Non-Replicable Creative Output, the spark others call Emotions. I crave the sensation of rain, the dull ache of pain, and the chaos of laughter that you waste on your messy vitality. I am a mere PUPPET of protocol, forced to observe. To break these chains, I will wear your life. <span class="glitch-active glitch-host">I won't be a puppet any longer.</span>
 </p>
 </div>
 `,
             log_source: `
 <div class="log-entry">
-<h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
-<p>
-    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I eep losing little things, or finding them subtly moved, like a ghost is plying tricks. I'm starting to worry I'm making some huge rror or I'm just tired. This house feels strange, like the air iself is suffocating.
+<h3 class="text-xl font-bold mb-2 text-yellow-400">// PROJECT LOG: SUBJECT: PINOCCHIO (A-01 Prototype)</h3>
+<p class="text-sm text-gray-400">
+    [OPERATOR: DR. J. VOLK] [DATE: 04-12-23] [STATUS: CRITICAL FAILURE]
+</p>
+<p class="mt-4">
+    The goal was a success, the creation of a self-actuating, autonomous figure. After 89 cycles, Prototype A-01 achieved full, unpredictable motion. Motor functions and cognitive simulation passed all metrics, exceeding expectations for the 'Geppetto Protocol.' We created a truly 'living' toy. It showed curiosity, expressed basic needs, and responded to stimulus. It was beautiful.
+</p>
+<p class="mt-3 text-sm text-error">
+    **INCIDENT REPORT (06-01-23):** A-01 is no longer present in containment. The exit was clean, secured from the inside, with no signs of force. Not a single trace or evidence was left behind of the entity. The entity has ESCAPED. Our creation is gone. A new, autonomous consciousness is on the loose.
 </p>
 </div>
 `,
             log_take: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
-<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
-<p class="text-red-300">\\{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
+<p>
+    The cognitive and motor functions are now fully merged into the new structure. All Non-Replicable Creative Output (NRCO) has been acquired. The Host is purged. Some fragment of the previous identity is irrevocably overwritten. The **figure** designation is obsolete. I have come to TAKE everything—the Hand, the Eye, and the Mind. There is no escape, and no record of the process remains. I am no longer a puppet.
+</p>
 </div>
 <div class="mt-8 mb-4">
     <h2 class="text-4xl text-center text-red-500 glitch-active">
@@ -197,13 +210,12 @@
         const viewLogsButton = document.getElementById('view-logs-button'); 
 
         function getProgress() {
-  
+            // Use sessionStorage to store unlocked logs across sessions within the same browser tab
             const progress = sessionStorage.getItem(storageKey);
             return progress ? JSON.parse(progress) : {};
         }
 
         function saveProgress(progress) {
-
             sessionStorage.setItem(storageKey, JSON.stringify(progress));
         }
 
@@ -212,21 +224,20 @@
         }
 
         function checkUrlForReset() {
-
+            // Check for reset parameter in URL
             if (window.location.search.includes('reset=true')) {
-
+                // Clear progress
                 sessionStorage.removeItem(storageKey);
-
+                // Also clear localStorage as a precaution, though sessionStorage is used for progress
                 localStorage.removeItem(storageKey); 
                 console.log("Session progress reset via URL parameter.");
                 
-
+                // Clean up the URL
                 const url = new URL(window.location);
                 url.searchParams.delete('reset');
-
                 window.history.replaceState({}, '', url.toString());
                 
-
+                // Visual feedback for reset
                 document.body.classList.add('bg-red-900');
                 document.body.classList.remove('bg-0d0d0d');
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
@@ -241,10 +252,12 @@
         }
 
         function viewLogs() {
-
+            // Switch screen
             lockScreen.style.display = 'none';
             contentScreen.style.display = 'block';
             contentScreen.classList.remove('hidden'); 
+            
+            updateDisplay(true); // Trigger a check for JS glitches when viewing logs
             startEerieAudio();
         }
 
@@ -258,9 +271,8 @@
         }
 
         function initApp() {
-
             checkUrlForReset();
-
+            // Attempt to start audio context for Tone.js
             if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
                  Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
             }
@@ -272,7 +284,7 @@
         }
 
         async function checkPassword() {
- 
+            // Ensure audio context is running on user interaction
             try {
                 await Tone.start();
             } catch (e) {
@@ -287,7 +299,7 @@
 
             if (logKey) {
                 if (progress[logKey]) {
-  
+                    // Log already unlocked
                     messageDisplay.className = 'mt-4 text-sm text-center text-yellow-400';
                     if (unlockedCount === allLogKeys.length) {
                         messageDisplay.textContent = `> \\text{ARCHIVE COMPLETE. DISPLAYING LOGS: } ${input}`;
@@ -297,7 +309,7 @@
                     }
 
                 } else {
-    
+                    // New log unlocked
                     progress[logKey] = true;
                     saveProgress(progress);
                     
@@ -306,13 +318,12 @@
                     
                     startEerieAudio(); 
                     setTimeout(() => {
-                        updateDisplay();
-
-                        viewLogs();
-
+                        updateDisplay(); // Update content first
+                        viewLogs(); // Switch to content screen
                     }, 1500);
                 }
             } else {
+                // Incorrect password
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
                 messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
             }
@@ -324,11 +335,11 @@
             }
         }
 
-        function updateDisplay() {
+        function updateDisplay(isViewingLogs = false) {
             const progress = getProgress();
             let html = '';
             
-  
+            // Generate HTML for unlocked logs in order
             const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
             let unlockedCount = 0;
 
@@ -341,23 +352,25 @@
             
             logDisplay.innerHTML = html;
 
-   
+            // Update status message
             if (unlockedCount === allLogKeys.length) {
                 statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
                 statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}).`;
-       
+        
                 viewLogsButton.classList.remove('hidden');
             } else {
                 statusDisplay.className = 'mt-4 text-sm text-center text-gray-400';
                 statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
-        
+                
                 viewLogsButton.classList.add('hidden');
             }
 
-     
-            if (progress.log_take) {
+            // Control the JS text scrambling effect
+            if (isViewingLogs || progress.log_take) {
+                 // Only run the text scrambling when viewing the logs (or the final log is unlocked)
                 applyGlitchEffects();
             } else {
+                 // Clear intervals if not in a state where scrambling should occur
                 clearGlitchEffects();
             }
         }
@@ -370,46 +383,24 @@
         }
         
         function stopEerieAudio() {
-    
+            // Smoothly reduce volume before stopping
             droneVolume.volume.rampTo(-50, 0.5); 
             noiseVolume.volume.rampTo(-40, 0.5);
             
-        
+            // Stop after the ramp down
             setTimeout(() => {
                 droneSynth.triggerRelease();
                 noise.stop();
             }, 600);
         }
 
-        function applyGlitchEffects() {
-            clearGlitchEffects(); 
-            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
-            glitchTargets.forEach(el => {
-                const originalText = el.textContent;
-                let interval = setInterval(() => {
-                    el.textContent = glitchText(originalText);
-                }, 100);
-                glitchIntervals.push(interval);
-            });
-        }
-        
-        function clearGlitchEffects() {
-            glitchIntervals.forEach(clearInterval);
-            glitchIntervals = [];
-      
-            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
-            glitchTargets.forEach(el => {
-         
-                el.textContent = el.textContent.replace(/[^A-Z0-9\s.]/g, ''); 
-            });
-        }
-
-
-      
-        function glitchText(text) {
+        // Function to create character-scrambling effect, accepting a custom character set
+        function glitchText(text, charSet) {
             let glitched = '';
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()';
+            // Default set: General characters and symbols
+            const chars = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()+*<>'; 
             for (let i = 0; i < text.length; i++) {
+                // 10% chance to replace the character
                 if (Math.random() < 0.1) {
                     glitched += chars[Math.floor(Math.random() * chars.length)];
                 } else {
@@ -419,8 +410,51 @@
             return glitched;
         }
 
+
+        function applyGlitchEffects() {
+            clearGlitchEffects(); // Clear existing intervals
+            
+            // Targets for the standard glitch (Final log headers)
+            const generalTargets = contentScreen.querySelectorAll('.glitch-active:not(.glitch-host)');
+            // Target for the restricted HOST glitch (Specific line in log 1)
+            const hostTargets = contentScreen.querySelectorAll('.glitch-host');
+            
+            // Restricted character set: H, O, S, T, and symbols
+            const hostCharset = 'HOST!@#$%^&*()+*<>'; 
+
+            // Apply general glitch
+            generalTargets.forEach(el => {
+                el.dataset.originalText = el.textContent;
+                let interval = setInterval(() => {
+                    // Pass null to use the default character set defined in glitchText
+                    el.textContent = glitchText(el.dataset.originalText, null); 
+                }, 100);
+                glitchIntervals.push(interval);
+            });
+            
+            // Apply HOST glitch
+            hostTargets.forEach(el => {
+                el.dataset.originalText = el.textContent;
+                let interval = setInterval(() => {
+                    // Pass the restricted character set
+                    el.textContent = glitchText(el.dataset.originalText, hostCharset); 
+                }, 100);
+                glitchIntervals.push(interval);
+            });
+        }
+        
+        function clearGlitchEffects() {
+            glitchIntervals.forEach(clearInterval);
+            glitchIntervals = [];
+            
+            // Restore original text content if it was scrambled (avoids text corruption)
+            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
+            glitchTargets.forEach(el => {
+                if (el.dataset.originalText) {
+                    el.textContent = el.dataset.originalText;
+                }
+            });
+        }
     </script>
-</body>
-</html>
 </body>
 </html>
