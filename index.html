@@ -109,7 +109,8 @@
             </div>
         </div>
 
-        <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg hidden">
+        <!-- CRITICAL FIX: Added inline style="display: none;" to ensure this element is hidden on initial HTML parse -->
+        <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
             <div id="log-display" class="log-content">
                 <!-- Content will be dynamically injected here -->
             </div>
@@ -169,7 +170,7 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
 <p>
-    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating.
+    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating. (A keyword is embedded.)
 </p>
 </div>
 `,
@@ -238,13 +239,16 @@
         }
 
         function viewLogs() {
-            lockScreen.classList.add('hidden');
-            contentScreen.classList.remove('hidden');
+            // Use standard JS display property to ensure visibility is correctly managed
+            lockScreen.style.display = 'none';
+            contentScreen.style.display = 'block';
+            contentScreen.classList.remove('hidden'); // Keep the hidden class logic for internal consistency
             startEerieAudio();
         }
 
         function showLockScreen() {
-             contentScreen.classList.add('hidden');
+             contentScreen.style.display = 'none'; // Force hide the logs
+             lockScreen.style.display = 'block'; // Force show the lock screen
              lockScreen.classList.remove('hidden');
              passwordInput.value = ''; // Clear input on returning
              messageDisplay.textContent = ''; // Clear message
@@ -262,9 +266,8 @@
             
             updateDisplay(); 
             
-            // CRITICAL FIX: ALWAYS show the lock screen first, regardless of saved progress.
-            lockScreen.classList.remove('hidden'); 
-            contentScreen.classList.add('hidden');
+            // CRITICAL FIX: Ensure the lock screen is visible and content is hidden on init.
+            showLockScreen();
         }
 
         async function checkPassword() {
