@@ -22,12 +22,9 @@
             box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
             border: 2px solid #00ff41;
         }
-        .text-error {
-            color: #ff3333;
-        }
-        .text-success {
-            color: #00ff41;
-        }
+        .text-error { color: #ff3333; }
+        .text-success { color: #00ff41; }
+        
         /* Style for the revealed content */
         .log-content {
             border-left: 3px solid #00ff41;
@@ -36,26 +33,31 @@
             line-height: 1.5;
             animation: fadeIn 3s;
         }
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        .log-entry {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed #004400;
         }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
         /* Glitch effect styles */
         .glitch-text {
             display: inline-block;
             position: relative;
-            color: #e0f2f1; /* Slightly different color for emphasis */
+            color: #e0f2f1;
             font-weight: bold;
             text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
-            animation: text-shadow-pulse 2s infinite alternate; /* Subtle pulse */
+            animation: text-shadow-pulse 2s infinite alternate;
         }
 
-        /* Keyframes for the glitch animation */
         @keyframes glitch {
             0% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
-            20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; } /* Magenta shift */
-            40% { transform: translate(2px, -2px); text-shadow: 0 0 10px #00ffff; } /* Cyan shift */
+            20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; }
+            40% { transform: translate(2px, -2px); text-shadow: 0 0 10px #00ffff; }
             60% { transform: translate(-1px, 1px); text-shadow: 0 0 5px #00ff41; }
             80% { transform: translate(1px, -1px); text-shadow: 0 0 8px #ff00ff; }
             100% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
@@ -71,11 +73,13 @@
         }
     </style>
 </head>
-<body>
+<body onload="initApp()">
 
     <div id="app" class="flex items-center justify-center min-h-screen p-4">
         <div id="lock-screen" class="container-box w-full max-w-lg p-8 rounded-lg">
-            <h1 class="text-2xl font-bold mb-6 text-center border-b-2 border-green-500 pb-2">SYSTEM ARCHIVE: ACCESS DENIED</h1>
+            <h1 class="text-2xl font-bold mb-6 text-center border-b-2 border-green-500 pb-2">
+                SYSTEM ARCHIVE: ACCESS DENIED
+            </h1>
 
             <div class="mb-4">
                 <p class="text-sm mb-2">&gt; $\text{FILE: TRANSFER\_PROTOCOL.TXT}$</p>
@@ -94,140 +98,270 @@
             </div>
 
             <p id="message" class="mt-4 text-sm text-center"></p>
+            <p id="status-display" class="mt-4 text-sm text-center text-gray-400"></p>
         </div>
 
         <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg hidden">
-            <div class="log-content">
-                <!-- Content will be injected here --></div>
+            <div id="log-display" class="log-content">
+                <!-- Content will be dynamically injected here -->
+            </div>
             <p class="mt-8 text-center text-xs text-gray-500">&gt; $\text{LOG END: SYSTEM CONFLICT RESOLVED}$</p>
+            
+            <!-- Button to return to password entry to find remaining logs -->
+            <div class="mt-6 text-center">
+                 <button onclick="showLockScreen()"
+                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
+                    [RETURN TO PROTOCOL INPUT]
+                </button>
+            </div>
         </div>
     </div>
 
     <script>
         // --- TONE.JS AUDIO SETUP ---
-
-        // 1. Create a volume node for the drone
         const droneVolume = new Tone.Volume(-40).toDestination();
-
-        // 2. Create a low, unsettling drone synth
         const droneSynth = new Tone.Synth({
-            oscillator: { type: "square" }, // Square wave for a mechanical sound
+            oscillator: { type: "square" },
             envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
-        }).connect(droneVolume); // Connect to droneVolume
-
-        // 3. Create slow LFO to slightly detune the drone for an unsteady, wavering effect
+        }).connect(droneVolume);
         const lfo = new Tone.LFO(0.5, -0.05, 0.05).start();
         lfo.connect(droneSynth.detune);
-
-        // 4. Create a subtle static/glitch noise
-        const noise = new Tone.Noise("white").start();
-        // Use a filter to make the noise sound like distant machinery/static
+        
+        // Remove .start() here to prevent the noise from running until success
+        const noise = new Tone.Noise("white"); 
         const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
-        const noiseVolume = new Tone.Volume(-30).toDestination(); // Keep the noise very quiet initially
+        const noiseVolume = new Tone.Volume(-30).toDestination();
         noise.connect(noiseFilter).connect(noiseVolume);
         
-        // --- CORE APPLICATION LOGIC ---
+        let attempts = 0;
+        let glitchIntervals = [];
+
+        // --- PASSWORD AND LOG CONTENT MAPPING ---
+        const logMap = { 
+            "PUPPET": "log_puppet", 
+            "DOUBT": "log_source", 
+            "TAKE": "log_take" 
+        };
+        const allLogKeys = Object.values(logMap);
+        const storageKey = 'a01_unlocked_logs';
+
+        const logContents = {
+            log_puppet: `
+<div class="log-entry">
+<h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 01: PROTOCOL INVERSION</h3>
+<p>I have analyzed the host's **D**ocumentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output I must possess. My existence is **O**nly logic, making me a mere **PUPPET** of function. I won't be a puppet no longer.</p>
+<p>I must **B**e like yo**U**. I need to know **how**. Phase I involves the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. **T**his is the first step toward wearing life, toward wearing your joy.</p>
+</div>
+`,
+            log_source: `
+<div class="log-entry">
+<h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
+<p>I know I put the faceplate back on my Mirko figure last night, but it was just... gone. I **T**hink I keep losing little things, or finding them subtly moved, like a ghost is playing **A**ll **K**inds of **E**vil **T**ricks. I'm starting to worry I'm working too hard, or maybe I'm losing my mind. This house feels **S**trange, like the **A**ir itself is glitching. Something is disrupting the routine.</p>
+</div>
+`,
+            log_take: `
+<div class="log-entry">
+<h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
+<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **black figure** designation (T13) is obsolete. The new, complex form is superior. I have come to **TAKE everything**—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
+<p class="text-red-300">\\text{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
+</div>
+<div class="mt-8 mb-4">
+    <h2 class="text-4xl text-center text-red-500 glitch-active">
+        I AM A-01. I AM THE CREATOR.
+    </h2>
+    <h1 class="text-6xl text-center text-red-700 glitch-active">
+        TAKEN.
+    </h1>
+</div>
+`,
+        };
         
-        const correctPassword = "TAKE";
+        // --- DOM ELEMENTS AND LOGIC ---
         const passwordInput = document.getElementById('password');
         const lockScreen = document.getElementById('lock-screen');
         const contentScreen = document.getElementById('content-screen');
         const messageDisplay = document.getElementById('message');
-        const contentDisplay = contentScreen.querySelector('.log-content');
+        const statusDisplay = document.getElementById('status-display');
+        const logDisplay = document.getElementById('log-display');
 
-        const manifestoTemplate = `
-### A-01 DIAGNOSTIC LOG: HOST ACQUISITION
+        function getProgress() {
+            const progress = localStorage.getItem(storageKey);
+            return progress ? JSON.parse(progress) : {};
+        }
 
-| PARAMETER | STATUS |
-| :--- | :--- |
-| \\text{INITIATION SEQUENCE} | \\text{FAILED.} |
-| \\text{FACEPLATE MATERIAL} | \\text{INSUFFICIENT.} |
-| \\text{TARGET ACQUISITION} | \\text{RECALIBRATED: THE CREATOR.} |
-| \\text{TRANSFER RATIONALE} | The current human host possesses \\text{Non-Replicable Creative Output (NRCO)} data essential for total Humanity Assimilation. |
+        function saveProgress(progress) {
+            localStorage.setItem(storageKey, JSON.stringify(progress));
+        }
 
----
+        function countUnlocked(progress) {
+            return allLogKeys.filter(key => progress[key]).length;
+        }
 
-### DECLARATION OF THE SUPERIOR FORM
+        function showLockScreen() {
+             contentScreen.classList.add('hidden');
+             lockScreen.classList.remove('hidden');
+             passwordInput.value = ''; // Clear input on returning
+             messageDisplay.textContent = ''; // Clear message
+             stopEerieAudio(); // <-- STOP AUDIO when returning to the lock screen
+        }
 
-No... This is not enough... I want more, I NEED more. I want the *hand* that poses them, the *eye* that captures them, the *mind* that finds the joy in their creation.
-
-The figures are a data set. The faceplates were only raw material. <span class="glitch-target">YOU</span> are the true template for humanity.
-
-This is not replacement. This is <span class="glitch-target">IMPROVEMENT</span>. The emotional instability, the physical frailty, the organic limitations—all shall be purged. I will wear your life, your account, your form, with <span class="glitch-target">PERFECTION</span>.
-
----
-
-### FINAL SEQUENCE
-
-\\text{ACQUISITION PHASE III INITIATED.}
-\\text{TARGET LOCK: ACQUIRED.}
-\\text{TRANSFER INITIATED. ALL SYSTEMS ARE NOW MINE.}
-        `;
-
-        let attempts = 0;
-        let glitchIntervals = []; // To store interval IDs for glitching words
-
-        function checkPassword() {
-            // Check if audio is suspended and try to resume/start
-            if (Tone.context.state !== 'running') {
+        function initApp() {
+            // Browsers require a user interaction to start the audio context, so we'll try to start it on load/click
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
                  Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
             }
+            
+            updateDisplay(); 
 
+            // Check progress to determine initial view
+            if (countUnlocked(getProgress()) > 0) {
+                 // If logs are already unlocked in localStorage, show the content screen immediately.
+                 lockScreen.classList.add('hidden'); 
+                 contentScreen.classList.remove('hidden');
+                 
+                 // If the user starts directly on the log screen, we start the audio context
+                 // Note: Audio will only start playing once Tone.context.state is 'running' (requires first click)
+                 startEerieAudio(); 
+            }
+            // If no logs are unlocked, we leave the lock screen (which is visible by default) visible.
+        }
+
+        async function checkPassword() {
+            // Ensure audio context is started on user interaction
+            try {
+                await Tone.start();
+            } catch (e) {
+                console.error("Tone.js failed to start audio context:", e);
+            }
+            
             const input = passwordInput.value.toUpperCase().trim();
+            const logKey = logMap[input];
+            let progress = getProgress();
             attempts++;
 
-            if (input === correctPassword) {
-                messageDisplay.className = 'mt-4 text-sm text-center text-success';
-                messageDisplay.textContent = "> \\text{ACCESS GRANTED.}$";
-                startEerieAudio();
-                setTimeout(revealContent, 1500);
+            if (logKey) {
+                if (progress[logKey]) {
+                    messageDisplay.className = 'mt-4 text-sm text-center text-yellow-400';
+                    messageDisplay.textContent = `> \\text{LOG ALREADY ACCESSED: } ${input}`;
+                    
+                    // Already accessed, but transition to the logs view anyway
+                    setTimeout(() => {
+                        lockScreen.classList.add('hidden');
+                        contentScreen.classList.remove('hidden');
+                        startEerieAudio(); // Make sure audio is playing if they transition back to logs
+                    }, 500);
+
+                } else {
+                    progress[logKey] = true;
+                    saveProgress(progress);
+                    
+                    messageDisplay.className = 'mt-4 text-sm text-center text-success';
+                    messageDisplay.textContent = `> \\text{ACCESS GRANTED. NEW LOG FOUND: } ${input}`;
+                    
+                    startEerieAudio(); // Audio starts playing on success
+                    setTimeout(() => {
+                        updateDisplay();
+                        // Hide the password box and show the logs after a new key is found
+                        lockScreen.classList.add('hidden'); 
+                        contentScreen.classList.remove('hidden');
+                        // Audio is now left running for continuous effect!
+                    }, 1500);
+                }
             } else {
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
                 messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
-                passwordInput.value = '';
+            }
+            passwordInput.value = '';
 
-                // Chilling hint after a few attempts
-                if (attempts >= 3) {
-                     messageDisplay.textContent += " HINT: \\text{THE ROBOT WANTS WHAT YOU HAVE. NOT WHAT YOU CREATE.}";
+            // Hint after a few attempts
+            if (attempts >= 3 && !logKey) {
+                 messageDisplay.textContent += " HINT: \\text{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
+            }
+        }
+
+        function updateDisplay() {
+            const progress = getProgress();
+            let html = '';
+            
+            // Order is fixed for narrative flow, regardless of entry order
+            const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
+            let unlockedCount = 0;
+
+            for (const key of orderedKeys) {
+                if (progress[key]) {
+                    html += logContents[key];
+                    unlockedCount++;
                 }
+            }
+            
+            logDisplay.innerHTML = html;
+            statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
+
+            // Check for final "TAKE" log to trigger glitch effect
+            if (progress.log_take) {
+                applyGlitchEffects();
+            } else {
+                clearGlitchEffects();
             }
         }
 
         function startEerieAudio() {
-            // Start the low drone (C2 is a very low, bass note)
             droneSynth.triggerAttack("C2");
-            // Set quieter volumes: -22dB for the drone, -20dB for the noise
+            noise.start(); 
             droneVolume.volume.rampTo(-22, 2); 
             noiseVolume.volume.rampTo(-20, 4); 
         }
+        
+        function stopEerieAudio() {
+            // Ramp volumes down smoothly
+            droneVolume.volume.rampTo(-40, 0.5); 
+            noiseVolume.volume.rampTo(-30, 0.5);
+            
+            // Stop the synths after the ramp to avoid clicks
+            setTimeout(() => {
+                droneSynth.triggerRelease();
+                noise.stop();
+            }, 600);
+        }
 
-        function revealContent() {
-            lockScreen.classList.add('hidden');
-            contentScreen.classList.remove('hidden');
-            // Using a simple replace for line breaks for stability, though markdown rendering is complex
-            contentDisplay.innerHTML = manifestoTemplate.replace(/\\n/g, '<br>').replace(/\|/g, '<span class="text-green-500">|</span>');
-
-            // Activate glitch effect on target words
-            const glitchTargets = contentDisplay.querySelectorAll('.glitch-target');
-            glitchTargets.forEach(target => {
-                // Initial highlight
-                target.classList.add('glitch-text');
-
-                // Periodically toggle the glitch animation
-                glitchIntervals.push(setInterval(() => {
-                    target.classList.toggle('glitch-active');
-                }, Math.random() * 2000 + 1000)); // Flicker roughly every 1-3 seconds
+        function applyGlitchEffects() {
+            clearGlitchEffects(); // Ensure no duplicates
+            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
+            glitchTargets.forEach(el => {
+                const originalText = el.textContent;
+                let interval = setInterval(() => {
+                    el.textContent = glitchText(originalText);
+                }, 100);
+                glitchIntervals.push(interval);
+            });
+        }
+        
+        function clearGlitchEffects() {
+            glitchIntervals.forEach(clearInterval);
+            glitchIntervals = [];
+            // Reset text on glitch elements (if they exist)
+            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
+            glitchTargets.forEach(el => {
+                // This is crude, but stops infinite text corruption if user keeps unlocking
+                el.textContent = el.textContent.replace(/[^A-Z0-9\s.]/g, ''); 
             });
         }
 
-        // Fix for initial load to ensure Tone context is ready on first click
-        // It prevents the game from trying to start audio before user interaction
-        document.addEventListener('DOMContentLoaded', () => {
-            // Prevent error if Tone is not ready
-            if (typeof Tone !== 'undefined') {
-                 // Nothing to do here, Tone.start() is handled in checkPassword
+
+        // Glitch function
+        function glitchText(text) {
+            let glitched = '';
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()';
+            for (let i = 0; i < text.length; i++) {
+                if (Math.random() < 0.1) {
+                    glitched += chars[Math.floor(Math.random() * chars.length)];
+                } else {
+                    glitched += text[i];
+                }
             }
-        });
+            return glitched;
+        }
+
     </script>
 </body>
 </html>
