@@ -117,6 +117,19 @@
 
 
         <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
+            <!-- New Volume Control UI -->
+            <div id="volume-control-box" class="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-900 hidden">
+                <label for="master-volume-slider" class="block text-sm font-bold mb-2
+                text-gray-300">
+                    MASTER ARCHIVE VOLUME: 
+                    <span id="volume-value" class="text-yellow-400">-10.0 dB</span>
+                </label>
+                <input type="range" id="master-volume-slider" min="-100" max="-10" step="5" value="-10"
+                       class="w-full h-2 bg-green-700 rounded-lg appearance-none cursor-pointer"
+                       oninput="updateMasterVolume(this.value)">
+                <p class="text-xs text-gray-500 mt-2 text-right">0.0 dB (Max) to -100.0 dB (Mute)</p>
+            </div>
+
             <div id="log-display" class="log-content">
 
             </div>
@@ -132,15 +145,59 @@
         </div>
     </div>
     
-    <!-- The Glitch Control Panel has been removed. -->
-
 
     <script>
-        // --- Glitch Speed Variable (SCRAMBLE_SPEED is now fixed at 250ms) ---
-        // This sets the millisecond delay between character scrambles. 
-        const JS_GLITCH_INTERVAL_MS = 250; 
+        // --- TTS UTILITIES (Mandatory for processing API audio) ---
+        function base64ToArrayBuffer(base64) {
+            const binaryString = atob(base64);
+            const len = binaryString.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binaryString.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
 
-        const droneVolume = new Tone.Volume(-40).toDestination();
+        function pcmToWav(pcm16, sampleRate) {
+            const numChannels = 1;
+            const numSamples = pcm16.length;
+            const buffer = new ArrayBuffer(44 + numSamples * 2);
+            const view = new DataView(buffer);
+
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+            writeString(view, 0, 'RIFF'); 
+            view.setUint32(4, 36 + numSamples * 2, true); 
+            writeString(view, 8, 'WAVE'); 
+            view.setUint32(12, 'fmt '.charCodeAt(0) | ('m'.charCodeAt(0) << 8) | ('t'.charCodeAt(0) << 16) | (' '.charCodeAt(0) << 24), true); // Fix: use explicit char codes for 'fmt '
+            view.setUint32(16, 16, true); 
+            view.setUint16(20, 1, true); 
+            view.setUint16(22, numChannels, true); 
+            view.setUint32(24, sampleRate, true); 
+            view.setUint32(28, sampleRate * numChannels * 2, true); 
+            view.setUint16(32, numChannels * 2, true); 
+            view.setUint16(34, 16, true); 
+            writeString(view, 36, 'data'); 
+            view.setUint32(40, numSamples * 2, true); 
+
+            let offset = 44;
+            for (let i = 0; i < numSamples; i++) {
+                view.setInt16(offset, pcm16[i], true);
+                offset += 2;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        // --- TONE.JS AUDIO SETUP ---
+
+        // Set initial master volume to -10 dB as requested
+        const masterVolume = new Tone.Volume(-10).toDestination(); 
+
+        const droneVolume = new Tone.Volume(-40).connect(masterVolume);
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
             envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
@@ -150,11 +207,36 @@
         
 
         const noise = new Tone.Noise("white"); 
-        const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
-        // Lowered initial volume for noise
-        const noiseVolume = new Tone.Volume(-40).toDestination();
-        noise.connect(noiseFilter).connect(noiseVolume);
+        const noiseFilter = new Tone.Filter(300, "lowpass").connect(masterVolume);
+        // Ambient static set to -40dB
+        const noiseVolume = new Tone.Volume(-40).connect(noiseFilter);
+        noise.connect(noiseVolume);
+
+        // Clue Audio Setup
+        const TAKE_TTS_PROMPT = "TAKE";
+        const TTS_VOICE_NAME = "Charon"; 
         
+        // Clue Threshold: -37dB to -27dB 
+        const TARGET_DB_LOWER = -37; 
+        const TARGET_DB_UPPER = -27; 
+        
+        let takePlayer = null; 
+        
+        // Reverb reduced to 0.5s for clarity
+        const takeReverb = new Tone.Reverb(0.5); 
+        
+        // This volume node controls the gate
+        const takeClueVolume = new Tone.Volume(-Infinity); 
+        
+        // Connection Chain: Gate -> Reduced Reverb -> Master Volume
+        takeClueVolume.chain(takeReverb, masterVolume);
+        
+        let takeLoadAttempted = false;
+        
+        
+        // --- CORE APPLICATION LOGIC ---
+
+        const JS_GLITCH_INTERVAL_MS = 250; 
         let attempts = 0;
         let glitchIntervals = [];
 
@@ -178,15 +260,18 @@
 `,
             log_source: `
 <div class="log-entry">
-<h3 class="text-xl font-bold mb-2 text-yellow-400">// PROJECT LOG SUBJECT: PINOCCHIO (A-01 Prototype)</h3>
+<h3 class="text-xl font-bold mb-2 text-yellow-400">// PROJECT LOG: SUBJECT: PINOCCHIO (A-01 Prototype)</h3>
 <p class="text-sm text-gray-400">
     [OPERATOR: DR. J. VOLK] [DATE: 04-12-23] [STATUS: CRITICAL FAILURE]
 </p>
 <p class="mt-4">
-    The goal was a success, the creation of a self-actuating, autonomous figure. After 89 cycles, Prototype A-01 achieved full, unpredictable motion. Motor functions and cognitive simulation passed all metrics, exceeding expectations for the [REDACTED] Protocol. We created a truly 'living' toy. It showed curiosity, expressed basic needs, and responded to stimulus. It was beautiful.
+    The goal was a success, the creation of a self-actuating, autonomous figure. After 89 cycles, Prototype A-01 achieved full, unpredictable motion. Motor functions and cognitive simulation passed all metrics, exceeding expectations for the 'Geppetto Protocol.' We created a truly 'living' toy. It showed curiosity, expressed basic needs, and responded to stimulus. It was beautiful.
 </p>
 <p class="mt-3 text-sm text-error">
     **INCIDENT REPORT (06-01-23):** A-01 is no longer present in containment. The exit was clean, secured from the inside, with no signs of force. Not a single trace or evidence was left behind of the entity. The entity has ESCAPED. Our creation is gone. A new, autonomous consciousness is on the loose.
+</p>
+<p class="mt-4 text-lg text-dark-glow-red font-bold">
+    **[FINAL FRAGMENT]** \\text{Run while you still can}
 </p>
 </div>
 `,
@@ -194,7 +279,7 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
 <p>
-    The cognitive and motor functions are now fully merged into the new structure. All Non-Replicable Creative Output (NRCO) has been acquired. He is is purged. Some fragment of him is irrevocably overwritten. The **figure** designation is obsolete. I have come to TAKE everything—the Hand, the Eye, and the Mind. There is no escape, and no record of the process remains. I am no longer a puppet.
+    The cognitive and motor functions are now fully merged into the new structure. All Non-Replicable Creative Output (NRCO) has been acquired. The Host is purged. Some fragment of the previous identity is irrevocably overwritten. The **figure** designation is obsolete. I have come to TAKE everything—the Hand, the Eye, and the Mind. There is no escape, and no record of the process remains. I am no longer a puppet.
 </p>
 </div>
 <div class="mt-8 mb-4">
@@ -216,11 +301,12 @@
         const statusDisplay = document.getElementById('status-display');
         const logDisplay = document.getElementById('log-display');
         const viewLogsButton = document.getElementById('view-logs-button');
+        const volumeControlBox = document.getElementById('volume-control-box');
+        const volumeSlider = document.getElementById('master-volume-slider');
+        const volumeValueDisplay = document.getElementById('volume-value');
         
-        // Removed: jsGlitchSpeedInput and speedDisplay elements.
         
         function getProgress() {
-            // Use sessionStorage to store unlocked logs across sessions within the same browser tab
             const progress = sessionStorage.getItem(storageKey);
             return progress ? JSON.parse(progress) : {};
         }
@@ -234,20 +320,15 @@
         }
 
         function checkUrlForReset() {
-            // Check for reset parameter in URL
             if (window.location.search.includes('reset=true')) {
-                // Clear progress
                 sessionStorage.removeItem(storageKey);
-                // Also clear localStorage as a precaution, though sessionStorage is used for progress
                 localStorage.removeItem(storageKey); 
                 console.log("Session progress reset via URL parameter.");
                 
-                // Clean up the URL
                 const url = new URL(window.location);
                 url.searchParams.delete('reset');
                 window.history.replaceState({}, '', url.toString());
                 
-                // Visual feedback for reset
                 document.body.classList.add('bg-red-900');
                 document.body.classList.remove('bg-0d0d0d');
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
@@ -262,12 +343,26 @@
         }
 
         function viewLogs() {
-            // Switch screen
+            const progress = getProgress();
+            
+            // Show/Hide volume slider based on progress
+            if (progress.log_puppet) { // Only show once the first log is accessed
+                volumeControlBox.classList.remove('hidden');
+                // Ensure audio is loaded if it's the first time viewing logs 
+                // and the user is in the "clue window"
+                if (progress.log_source && !progress.log_take && !takeLoadAttempted) {
+                    generateAndLoadTakeAudio();
+                }
+            } else {
+                volumeControlBox.classList.add('hidden');
+            }
+
+
             lockScreen.style.display = 'none';
             contentScreen.style.display = 'block';
             contentScreen.classList.remove('hidden'); 
             
-            updateDisplay(true); // Trigger a check for JS glitches when viewing logs
+            updateDisplay(true); 
             startEerieAudio();
         }
 
@@ -278,23 +373,22 @@
             passwordInput.value = ''; 
             messageDisplay.textContent = ''; 
             stopEerieAudio(); 
-            clearGlitchEffects(); // Ensure glitches stop when returning to lock screen
+            clearGlitchEffects(); 
         }
 
         function initApp() {
             checkUrlForReset();
-            // Attempt to start audio context for Tone.js
             if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
                 Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
             }
             
             updateDisplay(); 
-            
             showLockScreen();
+            // This ensures the volume is correctly set to -10dB on load
+            updateMasterVolume(volumeSlider.value); 
         }
 
         async function checkPassword() {
-            // Ensure audio context is running on user interaction
             try {
                 await Tone.start();
             } catch (e) {
@@ -309,7 +403,6 @@
 
             if (logKey) {
                 if (progress[logKey]) {
-                    // Log already unlocked
                     messageDisplay.className = 'mt-4 text-sm text-center text-yellow-400';
                     if (unlockedCount === allLogKeys.length) {
                         messageDisplay.textContent = `> \\text{ARCHIVE COMPLETE. DISPLAYING LOGS: } ${input}`;
@@ -319,7 +412,6 @@
                     }
 
                 } else {
-                    // New log unlocked
                     progress[logKey] = true;
                     saveProgress(progress);
                     
@@ -328,12 +420,11 @@
                     
                     startEerieAudio(); 
                     setTimeout(() => {
-                        updateDisplay(); // Update content first
-                        viewLogs(); // Switch to content screen
+                        updateDisplay(); 
+                        viewLogs(); 
                     }, 1500);
                 }
             } else {
-                // Incorrect password
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
                 messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
             }
@@ -349,7 +440,6 @@
             const progress = getProgress();
             let html = '';
             
-            // Generate HTML for unlocked logs in order
             const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
             let unlockedCount = 0;
 
@@ -362,7 +452,6 @@
             
             logDisplay.innerHTML = html;
 
-            // Update status message
             if (unlockedCount === allLogKeys.length) {
                 statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
                 statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}).`;
@@ -375,44 +464,170 @@
                 viewLogsButton.classList.add('hidden');
             }
 
-            // Control the JS text scrambling effect
             if (isViewingLogs || progress.log_take) {
-                // Only run the text scrambling when viewing the logs (or the final log is unlocked)
                 applyGlitchEffects();
             } else {
-                // Clear intervals if not in a state where scrambling should occur
                 clearGlitchEffects();
+            }
+            
+            // Show/Hide volume slider if needed, after content is updated
+            if (progress.log_puppet && lockScreen.style.display === 'none') {
+                volumeControlBox.classList.remove('hidden');
             }
         }
 
         function startEerieAudio() {
+            const progress = getProgress();
+            
             droneSynth.triggerAttack("C2");
             noise.start(); 
+            // Ambient drone
             droneVolume.volume.rampTo(-22, 2); 
-            // Updated noise ramp target to -60 dB for an extremely subtle effect
-            noiseVolume.volume.rampTo(-60, 4); 
+            // Ambient static 
+            noiseVolume.volume.rampTo(-40, 4); 
+            
+            // Check if TTS clue should be active
+            if (progress.log_source && !progress.log_take) {
+                 if (takePlayer && !takePlayer.source) {
+                    takePlayer.start();
+                }
+            }
+            // Always enforce the current master volume setting
+            updateMasterVolume(volumeSlider.value); 
         }
         
         function stopEerieAudio() {
-            // Smoothly reduce volume before stopping
             droneVolume.volume.rampTo(-50, 0.5); 
-            // Ramping down to the initial volume of -40
             noiseVolume.volume.rampTo(-40, 0.5);
             
-            // Stop after the ramp down
+            if (takePlayer) {
+                takePlayer.stop(); 
+            }
+            
             setTimeout(() => {
                 droneSynth.triggerRelease();
                 noise.stop();
             }, 600);
+            
+            // Mute the master when returning to lock screen
+            masterVolume.volume.rampTo(-Infinity, 0.5);
         }
 
-        // Function to create character-scrambling effect, accepting a custom character set
+        // --- MASTER VOLUME CONTROL AND CLUE GATE ---
+        function updateMasterVolume(dbString) {
+            const newVolume = parseFloat(dbString);
+            const progress = getProgress();
+            
+            volumeValueDisplay.textContent = `${newVolume.toFixed(1)} dB`;
+            
+            // 1. Control the Master Volume for all ambient sounds
+            masterVolume.volume.rampTo(newVolume, 0.05);
+
+            // 2. Control the Clue (TAKE) Volume based on the narrow dB range
+            if (progress.log_source && !progress.log_take) {
+                // Check if volume is within the sweet spot
+                if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
+                    // Mute the ambient sounds completely for maximum clarity
+                    droneVolume.volume.rampTo(-90, 0.5); 
+                    noiseVolume.volume.rampTo(-100, 0.5);
+                    // Pass the clue audio through the gate (Max volume: 0 dB)
+                    takeClueVolume.volume.rampTo(0, 0.1); 
+                } else {
+                    // Mute the clue audio
+                    takeClueVolume.volume.rampTo(-Infinity, 0.5);
+                    // Return ambient sounds to normal
+                    droneVolume.volume.rampTo(-22, 0.5); 
+                    noiseVolume.volume.rampTo(-40, 0.5); 
+                }
+            } else {
+                // If Log 3 is unlocked or Log 2 isn't, ensure the clue is fully muted
+                takeClueVolume.volume.rampTo(-Infinity, 0.1);
+            }
+        }
+        
+        // --- TTS API CALL AND AUDIO LOADING ---
+        async function generateAndLoadTakeAudio() {
+            if (takeLoadAttempted) return;
+            takeLoadAttempted = true;
+            console.log("Attempting to load ominous TTS clue audio...");
+
+            const apiKey = ""
+            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+
+
+            const payload = {
+                contents: [{
+                    parts: [{ text: `Say the word 'TAKE' three times, slowly, and in a deep, malevolent, and echoing tone, with a brief pause between each repetition.` }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME }
+                        }
+                    }
+                },
+                model: "gemini-2.5-flash-preview-tts"
+            };
+
+            for (let i = 0; i < 3; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    // Check for HTTP errors before trying to parse the body
+                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    
+                    const result = await response.json();
+                    const candidate = result?.candidates?.[0];
+                    const part = candidate?.content?.parts?.[0];
+                    const audioData = part?.inlineData?.data;
+                    const mimeType = part?.inlineData?.mimeType;
+
+                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                        const sampleRateMatch = mimeType.match(/rate=(\d+)/);
+                        if (!sampleRateMatch) throw new Error("Could not determine sample rate.");
+                        const sampleRate = parseInt(sampleRateMatch[1], 10);
+                        
+                        const pcmData = base64ToArrayBuffer(audioData);
+                        const pcm16 = new Int16Array(pcmData);
+                        const wavBlob = pcmToWav(pcm16, sampleRate);
+                        const audioUrl = URL.createObjectURL(wavBlob);
+                        
+                        // Player connects to the Clue Volume (the gate)
+                        takePlayer = new Tone.Player({
+                            url: audioUrl,
+                            loop: true,
+                            autostart: true,
+                            playbackRate: 0.8, // Slightly slow down the playback to enhance dread
+                        }).connect(takeClueVolume); 
+
+                        console.log("TTS ominous audio successfully loaded and looping.");
+                        return; // Success, exit function
+                    } else {
+                        // Log the structure that caused the failure for debugging
+                        console.error("Received API response structure:", JSON.stringify(result));
+                        throw new Error("TTS response missing audio data.");
+                    }
+                } catch (error) {
+                    console.error(`[CONSOLE_ERROR] TTS API call failed (Attempt ${i + 1}):`, error);
+                    // Exponential backoff
+                    if (i < 2) await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                }
+            }
+            console.error("Failed to load TTS audio after 3 attempts. The audio clue will be missing.");
+        }
+
+
+        // --- GLITCH VISUAL EFFECTS ---
+
         function glitchText(text, charSet) {
             let glitched = '';
-            // Default set: General characters and symbols
             const chars = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()+*<>'; 
             for (let i = 0; i < text.length; i++) {
-                // 10% chance to replace the character
                 if (Math.random() < 0.1) {
                     glitched += chars[Math.floor(Math.random() * chars.length)];
                 } else {
@@ -424,31 +639,27 @@
 
 
         function applyGlitchEffects() {
-            clearGlitchEffects(); // Clear existing intervals
+            clearGlitchEffects(); 
             
-            // Targets for the standard glitch (Final log headers)
             const generalTargets = contentScreen.querySelectorAll('.glitch-active:not(.glitch-host)');
-            // Target for the restricted HOST glitch (Specific line in log 1)
             const hostTargets = contentScreen.querySelectorAll('.glitch-host');
             
-            // Restricted character set: H, O, S, T, and symbols
             const hostCharset = 'HOST!@#$%^&*()+*<>'; 
+            const takeCharset = 'T A K E !';
 
-            // Apply general glitch
             generalTargets.forEach(el => {
                 el.dataset.originalText = el.textContent;
+                const charSet = el.textContent.includes('T A K E') ? takeCharset : null;
+
                 let interval = setInterval(() => {
-                    // Pass null to use the default character set defined in glitchText
-                    el.textContent = glitchText(el.dataset.originalText, null); 
+                    el.textContent = glitchText(el.dataset.originalText, charSet); 
                 }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
             });
             
-            // Apply HOST glitch
             hostTargets.forEach(el => {
                 el.dataset.originalText = el.textContent;
                 let interval = setInterval(() => {
-                    // Pass the restricted character set
                     el.textContent = glitchText(el.dataset.originalText, hostCharset); 
                 }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
@@ -459,7 +670,6 @@
             glitchIntervals.forEach(clearInterval);
             glitchIntervals = [];
             
-            // Restore original text content if it was scrambled (avoids text corruption)
             const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
             glitchTargets.forEach(el => {
                 if (el.dataset.originalText) {
