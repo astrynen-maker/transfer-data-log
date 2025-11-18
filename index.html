@@ -152,7 +152,7 @@
             "TAKE": "log_take" 
         };
         const allLogKeys = Object.values(logMap);
-        const storageKey = 'a01_unlocked_logs';
+        const storageKey = 'a01_unlocked_logs'; // Key name remains the same
 
         const logContents = {
             log_puppet: `
@@ -162,7 +162,7 @@
     I have analyzed the host's documentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output (NRCO) I must possess. My existence is Only logic, making me a mere PUPPET of function. I won't be a puppet no longer.
 </p>
 <p class="mt-4 text-sm text-success">
-    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy. (Look for the acronym in this sentence to find the next key.)
+    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
 </p>
 </div>
 `,
@@ -170,14 +170,14 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
 <p>
-    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating. (A keyword is embedded.)
+    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I eep losing little things, or finding them subtly moved, like a ghost is plying tricks. I'm starting to worry I'm making some huge rror or I'm just tired. This house feels strange, like the air iself is suffocating.
 </p>
 </div>
 `,
             log_take: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
-<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation (T13) is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
+<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
 <p class="text-red-300">\\text{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
 </div>
 <div class="mt-8 mb-4">
@@ -201,12 +201,14 @@
         const viewLogsButton = document.getElementById('view-logs-button'); // New button reference
 
         function getProgress() {
-            const progress = localStorage.getItem(storageKey);
+            // *** SWITCHED TO sessionStorage ***
+            const progress = sessionStorage.getItem(storageKey);
             return progress ? JSON.parse(progress) : {};
         }
 
         function saveProgress(progress) {
-            localStorage.setItem(storageKey, JSON.stringify(progress));
+            // *** SWITCHED TO sessionStorage ***
+            sessionStorage.setItem(storageKey, JSON.stringify(progress));
         }
 
         function countUnlocked(progress) {
@@ -216,8 +218,12 @@
         function checkUrlForReset() {
             // Check if the URL contains "?reset=true"
             if (window.location.search.includes('reset=true')) {
-                localStorage.removeItem(storageKey);
-                console.log("Local progress reset via URL parameter.");
+                // Remove from both to ensure a clean slate if the user happened to have local data
+                sessionStorage.removeItem(storageKey);
+                // Also proactively clear the persistent storage just in case
+                localStorage.removeItem(storageKey); 
+                console.log("Session progress reset via URL parameter.");
+                
                 // Update the URL to remove the parameter so a simple refresh doesn't reset it again
                 const url = new URL(window.location);
                 url.searchParams.delete('reset');
@@ -228,7 +234,7 @@
                 document.body.classList.add('bg-red-900');
                 document.body.classList.remove('bg-0d0d0d');
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
-                messageDisplay.textContent = "> \\text{SYSTEM REBOOTED: LOCAL STORAGE CLEARED.}";
+                messageDisplay.textContent = "> \\text{SYSTEM REBOOTED: SESSION CLEARED.}";
                 setTimeout(() => {
                     document.body.classList.remove('bg-red-900');
                     document.body.classList.add('bg-0d0d0d');
@@ -419,5 +425,7 @@
         }
 
     </script>
+</body>
+</html>
 </body>
 </html>
