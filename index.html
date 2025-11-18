@@ -213,7 +213,6 @@
         noise.connect(noiseVolume);
 
         // Clue Audio Setup
-        const TAKE_TTS_PROMPT = "TAKE";
         const TTS_VOICE_NAME = "Charon"; 
         
         // Clue Threshold: -37dB to -27dB 
@@ -271,7 +270,7 @@
     **INCIDENT REPORT (06-01-23):** A-01 is no longer present in containment. The exit was clean, secured from the inside, with no signs of force. Not a single trace or evidence was left behind of the entity. The entity has ESCAPED. Our creation is gone. A new, autonomous consciousness is on the loose.
 </p>
 <p class="mt-4 text-lg text-dark-glow-red font-bold">
-    **[FINAL FRAGMENT]** \\text{Run while you still can}
+    **[FINAL FRAGMENT]** \\text{I can feel it... it's going to }<span class="glitch-active" data-char-set="T A K E !">T A K E</span>\\text{ everything.}
 </p>
 </div>
 `,
@@ -351,6 +350,7 @@
                 // Ensure audio is loaded if it's the first time viewing logs 
                 // and the user is in the "clue window"
                 if (progress.log_source && !progress.log_take && !takeLoadAttempted) {
+                    // Call the loader when logs are viewed if the conditions are met
                     generateAndLoadTakeAudio();
                 }
             } else {
@@ -378,9 +378,7 @@
 
         function initApp() {
             checkUrlForReset();
-            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
-            }
+            // Start audio context on user interaction (handled in checkPassword/viewLogs)
             
             updateDisplay(); 
             showLockScreen();
@@ -389,10 +387,14 @@
         }
 
         async function checkPassword() {
-            try {
-                await Tone.start();
-            } catch (e) {
-                console.error("Tone.js failed to start audio context:", e);
+            // **CRITICAL FIX:** Ensure the audio context is resumed on a user gesture
+            if (Tone.context.state !== 'running') {
+                try {
+                    await Tone.start();
+                    console.log("Audio Context resumed/started successfully.");
+                } catch (e) {
+                    console.error("Tone.js failed to start audio context on password check:", e);
+                }
             }
             
             const input = passwordInput.value.toUpperCase().trim();
@@ -490,6 +492,8 @@
             if (progress.log_source && !progress.log_take) {
                  if (takePlayer && !takePlayer.source) {
                     takePlayer.start();
+                } else if (takeLoadAttempted) {
+                    console.log("[Audio Status] TTS clue is loaded but not yet playing (Awaiting volume sweet spot).");
                 }
             }
             // Always enforce the current master volume setting
@@ -554,7 +558,7 @@
             const apiKey = ""
             const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
 
-
+            // Prompts the model to repeat the word three times for better audibility
             const payload = {
                 contents: [{
                     parts: [{ text: `Say the word 'TAKE' three times, slowly, and in a deep, malevolent, and echoing tone, with a brief pause between each repetition.` }]
@@ -572,6 +576,7 @@
 
             for (let i = 0; i < 3; i++) {
                 try {
+                    console.log(`[TTS] Fetching audio data (Attempt ${i + 1})...`);
                     const response = await fetch(apiUrl, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -579,7 +584,11 @@
                     });
 
                     // Check for HTTP errors before trying to parse the body
-                    if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
+                    if (!response.ok) {
+                        const errorText = await response.text();
+                        console.error(`[TTS_ERROR] HTTP status ${response.status}. Response body: ${errorText}`);
+                        throw new Error(`TTS API call failed: Status ${response.status}`);
+                    }
                     
                     const result = await response.json();
                     const candidate = result?.candidates?.[0];
@@ -605,11 +614,10 @@
                             playbackRate: 0.8, // Slightly slow down the playback to enhance dread
                         }).connect(takeClueVolume); 
 
-                        console.log("TTS ominous audio successfully loaded and looping.");
+                        console.log("[TTS] Ominous audio successfully loaded and looping.");
                         return; // Success, exit function
                     } else {
-                        // Log the structure that caused the failure for debugging
-                        console.error("Received API response structure:", JSON.stringify(result));
+                        console.error("[TTS_ERROR] Received API response structure missing audio data:", JSON.stringify(result));
                         throw new Error("TTS response missing audio data.");
                     }
                 } catch (error) {
@@ -618,7 +626,7 @@
                     if (i < 2) await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
                 }
             }
-            console.error("Failed to load TTS audio after 3 attempts. The audio clue will be missing.");
+            console.error("--- TTS FAIL: The audio clue will be missing. This is likely due to CORS or a missing API Key on your hosting service. ---");
         }
 
 
