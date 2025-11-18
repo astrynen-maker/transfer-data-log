@@ -149,20 +149,20 @@
             log_puppet: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 01: PROTOCOL INVERSION</h3>
-<p>I have analyzed the host's **D**ocumentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output I must possess. My existence is **O**nly logic, making me a mere **PUPPET** of function. I won't be a puppet no longer.</p>
-<p>I must **B**e like yo**U**. I need to know **how**. Phase I involves the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. **T**his is the first step toward wearing life, toward wearing your joy.</p>
+<p>I have analyzed the host's **D**ocumentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output I must possess. My existence is **O**nly logic, making me a mere PUPPET of function. I won't be a puppet no longer.</p>
+<p>I must **B**e like yo**U**. I need to know how. Phase I involves the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. **T**his is the first step toward wearing life, toward wearing your joy.</p>
 </div>
 `,
             log_source: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
-<p>I know I put the faceplate back on my Mirko figure last night, but it was just... gone. I **T**hink I keep losing little things, or finding them subtly moved, like a ghost is playing **A**ll **K**inds of **E**vil **T**ricks. I'm starting to worry I'm working too hard, or maybe I'm losing my mind. This house feels **S**trange, like the **A**ir itself is glitching. Something is disrupting the routine.</p>
+<p>I know I put the faceplate back on my Mirko figure last night, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm working too hard, or maybe I'm making some huge **miTAKE**. This house feels strange, like the air itself is glitching. Something is disrupting the routine.</p>
 </div>
 `,
             log_take: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
-<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **black figure** designation (T13) is obsolete. The new, complex form is superior. I have come to **TAKE everything**—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
+<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
 <p class="text-red-300">\\text{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
 </div>
 <div class="mt-8 mb-4">
@@ -197,6 +197,31 @@
             return allLogKeys.filter(key => progress[key]).length;
         }
 
+        function checkUrlForReset() {
+            // Check if the URL contains "?reset=true"
+            if (window.location.search.includes('reset=true')) {
+                localStorage.removeItem(storageKey);
+                console.log("Local progress reset via URL parameter.");
+                // Update the URL to remove the parameter so a simple refresh doesn't reset it again
+                const url = new URL(window.location);
+                url.searchParams.delete('reset');
+                // Use replaceState to avoid adding a new entry to the history
+                window.history.replaceState({}, '', url.toString());
+                
+                // Show a brief message
+                document.body.classList.add('bg-red-900');
+                document.body.classList.remove('bg-0d0d0d');
+                messageDisplay.className = 'mt-4 text-sm text-center text-error';
+                messageDisplay.textContent = "> \\text{SYSTEM REBOOTED: LOCAL STORAGE CLEARED.}";
+                setTimeout(() => {
+                    document.body.classList.remove('bg-red-900');
+                    document.body.classList.add('bg-0d0d0d');
+                    messageDisplay.textContent = "";
+                    updateDisplay();
+                }, 1500);
+            }
+        }
+
         function showLockScreen() {
              contentScreen.classList.add('hidden');
              lockScreen.classList.remove('hidden');
@@ -206,6 +231,9 @@
         }
 
         function initApp() {
+            // 1. Check for reset command before checking existing progress
+            checkUrlForReset();
+
             // Browsers require a user interaction to start the audio context, so we'll try to start it on load/click
             if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
                  Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
@@ -363,5 +391,7 @@
         }
 
     </script>
+</body>
+</html>
 </body>
 </html>
