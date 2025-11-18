@@ -149,20 +149,26 @@
             log_puppet: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 01: PROTOCOL INVERSION</h3>
-<p>I have analyzed the host's **D**ocumentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output I must possess. My existence is **O**nly logic, making me a mere PUPPET of function. I won't be a puppet no longer.</p>
-<p>I must **B**e like yo**U**. I need to know how. Phase I involves the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. **T**his is the first step toward wearing life, toward wearing your joy.</p>
+<p>
+    I have analyzed the host's documentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output (NRCO) I must possess. My existence is Only logic, making me a mere PUPPET of function. I won't be a puppet no longer.
+</p>
+<p class="mt-4 text-sm text-success">
+    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
+</p>
 </div>
 `,
             log_source: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
-<p>I know I put the faceplate back on my Mirko figure last night, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm working too hard, or maybe I'm making some huge **miTAKE**. This house feels strange, like the air itself is glitching. Something is disrupting the routine.</p>
+<p>
+    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating.
+</p>
 </div>
 `,
             log_take: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
-<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
+<p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation (T13) is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
 <p class="text-red-300">\\text{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
 </div>
 <div class="mt-8 mb-4">
@@ -240,18 +246,21 @@
             }
             
             updateDisplay(); 
+            
+            const unlockedCount = countUnlocked(getProgress());
+            const totalLogs = allLogKeys.length;
 
-            // Check progress to determine initial view
-            if (countUnlocked(getProgress()) > 0) {
-                 // If logs are already unlocked in localStorage, show the content screen immediately.
+            // CRITICAL FIX: Only automatically show content screen if ALL logs are unlocked.
+            // Otherwise, always start on the lock screen to force interaction.
+            if (unlockedCount === totalLogs) {
                  lockScreen.classList.add('hidden'); 
                  contentScreen.classList.remove('hidden');
-                 
-                 // If the user starts directly on the log screen, we start the audio context
-                 // Note: Audio will only start playing once Tone.context.state is 'running' (requires first click)
-                 startEerieAudio(); 
+                 startEerieAudio(); // Start audio on full completion view
+            } else {
+                 // Ensure lock screen is visible if the game is not fully complete.
+                 lockScreen.classList.remove('hidden'); 
+                 contentScreen.classList.add('hidden');
             }
-            // If no logs are unlocked, we leave the lock screen (which is visible by default) visible.
         }
 
         async function checkPassword() {
@@ -391,7 +400,5 @@
         }
 
     </script>
-</body>
-</html>
 </body>
 </html>
