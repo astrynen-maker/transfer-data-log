@@ -153,7 +153,7 @@
     I have analyzed the host's documentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output (NRCO) I must possess. My existence is Only logic, making me a mere PUPPET of function. I won't be a puppet no longer.
 </p>
 <p class="mt-4 text-sm text-success">
-    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
+    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy. (Look for the acronym in this sentence to find the next key.)
 </p>
 </div>
 `,
@@ -161,7 +161,7 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
 <p>
-    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating.
+    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I keep losing little things, or finding them subtly moved, like a ghost is playing tricks. I'm starting to worry I'm making some huge mi**TAKE** or I'm just tired. This house feels strange, like the air itself is suffocating. (A keyword is embedded.)
 </p>
 </div>
 `,
@@ -247,20 +247,9 @@
             
             updateDisplay(); 
             
-            const unlockedCount = countUnlocked(getProgress());
-            const totalLogs = allLogKeys.length;
-
-            // CRITICAL FIX: Only automatically show content screen if ALL logs are unlocked.
-            // Otherwise, always start on the lock screen to force interaction.
-            if (unlockedCount === totalLogs) {
-                 lockScreen.classList.add('hidden'); 
-                 contentScreen.classList.remove('hidden');
-                 startEerieAudio(); // Start audio on full completion view
-            } else {
-                 // Ensure lock screen is visible if the game is not fully complete.
-                 lockScreen.classList.remove('hidden'); 
-                 contentScreen.classList.add('hidden');
-            }
+            // ALWAYS show the lock screen first, fulfilling the user's request.
+            lockScreen.classList.remove('hidden'); 
+            contentScreen.classList.add('hidden');
         }
 
         async function checkPassword() {
@@ -332,7 +321,15 @@
             }
             
             logDisplay.innerHTML = html;
-            statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
+
+            // Updated status display logic
+            if (unlockedCount === allLogKeys.length) {
+                statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
+                statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}). Re-enter any keyword to view the full log.`;
+            } else {
+                statusDisplay.className = 'mt-4 text-sm text-center text-gray-400';
+                statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
+            }
 
             // Check for final "TAKE" log to trigger glitch effect
             if (progress.log_take) {
