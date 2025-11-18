@@ -4,16 +4,14 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>A-01 Diagnostic Log</title>
-    <!-- Load Tailwind CSS and Tone.js for audio generation -->
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
     <style>
-        /* Custom font for a stark, technical feel */
         @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
         body {
             font-family: 'Roboto Mono', monospace;
             background-color: #0d0d0d;
-            color: #00ff41; /* Classic green terminal text */
+            color: #00ff41; 
             transition: background-color 1s ease-in-out, color 1s ease-in-out;
             cursor: crosshair;
         }
@@ -25,7 +23,6 @@
         .text-error { color: #ff3333; }
         .text-success { color: #00ff41; }
         
-        /* Style for the revealed content */
         .log-content {
             border-left: 3px solid #00ff41;
             padding-left: 1rem;
@@ -44,7 +41,6 @@
 
         @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        /* Glitch effect styles */
         .glitch-text {
             display: inline-block;
             position: relative;
@@ -82,8 +78,8 @@
             </h1>
 
             <div class="mb-4">
-                <p class="text-sm mb-2">&gt; $\text{FILE: TRANSFER\_PROTOCOL.TXT}$</p>
-                <p class="text-sm mb-2">&gt; $\text{PROTOCOL: AUTHENTICATION REQUIRED}$</p>
+                <p class="text-sm mb-2">&gt; {FILE: TRANSFER\_PROTOCOL.TXT}</p>
+                <p class="text-sm mb-2">&gt; {PROTOCOL: AUTHENTICATION REQUIRED}</p>
             </div>
 
             <label for="password" class="block text-sm font-bold mb-2">Input Code:</label>
@@ -100,7 +96,7 @@
             <p id="message" class="mt-4 text-sm text-center"></p>
             <p id="status-display" class="mt-4 text-sm text-center text-gray-400"></p>
             
-            <!-- NEW BUTTON: Only visible if the archive is complete -->
+
             <div class="mt-4 text-center">
                 <button id="view-logs-button" onclick="viewLogs()"
                         class="px-4 py-3 bg-yellow-700 hover:bg-yellow-600 transition duration-150 rounded font-bold text-gray-900 hidden">
@@ -109,14 +105,14 @@
             </div>
         </div>
 
-        <!-- CRITICAL FIX: Added inline style="display: none;" to ensure this element is hidden on initial HTML parse -->
+
         <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
             <div id="log-display" class="log-content">
-                <!-- Content will be dynamically injected here -->
+
             </div>
-            <p class="mt-8 text-center text-xs text-gray-500">&gt; $\text{LOG END: SYSTEM CONFLICT RESOLVED}$</p>
+            <p class="mt-8 text-center text-xs text-gray-500">&gt;{LOG END: SYSTEM CONFLICT RESOLVED}$</p>
             
-            <!-- Button to return to password entry to find remaining logs -->
+
             <div class="mt-6 text-center">
                  <button onclick="showLockScreen()"
                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
@@ -127,7 +123,7 @@
     </div>
 
     <script>
-        // --- TONE.JS AUDIO SETUP ---
+
         const droneVolume = new Tone.Volume(-40).toDestination();
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
@@ -136,7 +132,7 @@
         const lfo = new Tone.LFO(0.5, -0.05, 0.05).start();
         lfo.connect(droneSynth.detune);
         
-        // Remove .start() here to prevent the noise from running until success
+
         const noise = new Tone.Noise("white"); 
         const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
         const noiseVolume = new Tone.Volume(-30).toDestination();
@@ -145,14 +141,14 @@
         let attempts = 0;
         let glitchIntervals = [];
 
-        // --- PASSWORD AND LOG CONTENT MAPPING ---
+
         const logMap = { 
             "PUPPET": "log_puppet", 
             "DOUBT": "log_source", 
             "TAKE": "log_take" 
         };
         const allLogKeys = Object.values(logMap);
-        const storageKey = 'a01_unlocked_logs'; // Key name remains the same
+        const storageKey = 'a01_unlocked_logs'; 
 
         const logContents = {
             log_puppet: `
@@ -162,7 +158,7 @@
     I have analyzed the host's documentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output (NRCO) I must possess. My existence is Only logic, making me a mere PUPPET of function. I won't be a puppet no longer.
 </p>
 <p class="mt-4 text-sm text-success">
-    I initiated the first phase by taking the synthetic faceplate from the **Luminous Rabbit Figure**. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
+    I initiated the first phase by taking the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
 </p>
 </div>
 `,
@@ -178,7 +174,7 @@
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
 <p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
-<p class="text-red-300">\\text{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
+<p class="text-red-300">\\{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
 </div>
 <div class="mt-8 mb-4">
     <h2 class="text-4xl text-center text-red-500 glitch-active">
@@ -262,17 +258,16 @@
         }
 
         function initApp() {
-            // 1. Check for reset command before checking existing progress
+
             checkUrlForReset();
 
-            // Browsers require a user interaction to start the audio context, so we'll try to start it on load/click
             if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
                  Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
             }
             
             updateDisplay(); 
             
-            // CRITICAL FIX: Ensure the lock screen is visible and content is hidden on init.
+            
             showLockScreen();
         }
 
