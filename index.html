@@ -1,425 +1,427 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>A-01 Diagnostic Log</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
-    <style>
-        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
-        body {
-            font-family: 'Roboto Mono', monospace;
-            background-color: #0d0d0d;
-            color: #00ff41; 
-            transition: background-color 1s ease-in-out, color 1s ease-in-out;
-            cursor: crosshair;
-        }
-        .container-box {
-            background-color: #1a1a1a;
-            box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
-            border: 2px solid #00ff41;
-        }
-        .text-error { color: #ff3333; }
-        .text-success { color: #00ff41; }
-        
-        .log-content {
-            border-left: 3px solid #00ff41;
-            padding-left: 1rem;
-            white-space: pre-wrap;
-            line-height: 1.5;
-            animation: fadeIn 3s;
-        }
-        .log-entry {
-            margin-bottom: 2rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px dashed #004400;
-        }
-        .log-entry:last-child {
-            border-bottom: none;
-        }
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>A-01 Diagnostic Log</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap');
+        body {
+            font-family: 'Roboto Mono', monospace;
+            background-color: #0d0d0d;
+            color: #00ff41; 
+            transition: background-color 1s ease-in-out, color 1s ease-in-out;
+            cursor: crosshair;
+        }
+        .container-box {
+            background-color: #1a1a1a;
+            box-shadow: 0 0 20px rgba(0, 255, 65, 0.4);
+            border: 2px solid #00ff41;
+        }
+        .text-error { color: #ff3333; }
+        .text-success { color: #00ff41; }
+        
+        .log-content {
+            border-left: 3px solid #00ff41;
+            padding-left: 1rem;
+            white-space: pre-wrap;
+            line-height: 1.5;
+            animation: fadeIn 3s;
+        }
+        .log-entry {
+            margin-bottom: 2rem;
+            padding-bottom: 1rem;
+            border-bottom: 1px dashed #004400;
+        }
+        .log-entry:last-child {
+            border-bottom: none;
+        }
 
-        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+        @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 
-        .glitch-text {
-            display: inline-block;
-            position: relative;
-            color: #e0f2f1;
-            font-weight: bold;
-            text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
-            animation: text-shadow-pulse 2s infinite alternate;
-        }
+        .glitch-text {
+            display: inline-block;
+            position: relative;
+            color: #e0f2f1;
+            font-weight: bold;
+            text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41;
+            animation: text-shadow-pulse 2s infinite alternate;
+        }
 
-        @keyframes glitch {
-            0% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
-            20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; }
-            40% { transform: translate(2px, -2px); text-shadow: 0 0 10px #00ffff; }
-            60% { transform: translate(-1px, 1px); text-shadow: 0 0 5px #00ff41; }
-            80% { transform: translate(1px, -1px); text-shadow: 0 0 8px #ff00ff; }
-            100% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
-        }
-        
-        @keyframes text-shadow-pulse {
-            from { text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41; }
-            to { text-shadow: 0 0 8px #00ff41, 0 0 15px #00ff41; }
-        }
+        @keyframes glitch {
+            0% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
+            20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; }
+            40% { transform: translate(2px, -2px); text-shadow: 0 0 10px #00ffff; }
+            60% { transform: translate(-1px, 1px); text-shadow: 0 0 5px #00ff41; }
+            80% { transform: translate(1px, -1px); text-shadow: 0 0 8px #ff00ff; }
+            100% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
+        }
+        
+        @keyframes text-shadow-pulse {
+            from { text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41; }
+            to { text-shadow: 0 0 8px #00ff41, 0 0 15px #00ff41; }
+        }
 
-        .glitch-active {
-            animation: glitch 0.2s infinite alternate, text-shadow-pulse 2s infinite alternate;
-        }
-    </style>
+        .glitch-active {
+            animation: glitch 0.2s infinite alternate, text-shadow-pulse 2s infinite alternate;
+        }
+    </style>
 </head>
 <body onload="initApp()">
 
-    <div id="app" class="flex items-center justify-center min-h-screen p-4">
-        <div id="lock-screen" class="container-box w-full max-w-lg p-8 rounded-lg">
-            <h1 class="text-2xl font-bold mb-6 text-center border-b-2 border-green-500 pb-2">
-                SYSTEM ARCHIVE: ACCESS DENIED
-            </h1>
+    <div id="app" class="flex items-center justify-center min-h-screen p-4">
+        <div id="lock-screen" class="container-box w-full max-w-lg p-8 rounded-lg">
+            <h1 class="text-2xl font-bold mb-6 text-center border-b-2 border-green-500 pb-2">
+                SYSTEM ARCHIVE: ACCESS DENIED
+            </h1>
 
-            <div class="mb-4">
-                <p class="text-sm mb-2">&gt;{FILE: TRANSFER\_PROTOCOL.TXT}</p>
-                <p class="text-sm mb-2">&gt;{PROTOCOL: AUTHENTICATION REQUIRED}</p>
-            </div>
+            <div class="mb-4">
+                <p class="text-sm mb-2">&gt;{FILE: TRANSFER\_PROTOCOL.TXT}</p>
+                <p class="text-sm mb-2">&gt;{PROTOCOL: AUTHENTICATION REQUIRED}</p>
+            </div>
 
-            <label for="password" class="block text-sm font-bold mb-2">Input Code:</label>
-            <div class="flex space-x-2">
-                <input type="password" id="password" placeholder="ENTER KEYWORD"
-                       class="flex-grow p-3 bg-gray-800 border border-green-500 text-green-300 rounded focus:ring-2 focus:ring-green-500 focus:outline-none"
-                       onkeypress="if(event.key === 'Enter') checkPassword()">
-                <button onclick="checkPassword()"
-                        class="px-4 py-3 bg-green-700 hover:bg-green-600 transition duration-150 rounded font-bold">
-                    [ACCESS]
-                </button>
-            </div>
+            <label for="password" class="block text-sm font-bold mb-2">Input Code:</label>
+            <div class="flex space-x-2">
+                <input type="password" id="password" placeholder="ENTER KEYWORD"
+                       class="flex-grow p-3 bg-gray-800 border border-green-500 text-green-300 rounded focus:ring-2 focus:ring-green-500 focus:outline-none"
+                       onkeypress="if(event.key === 'Enter') checkPassword()">
+                <button onclick="checkPassword()"
+                        class="px-4 py-3 bg-green-700 hover:bg-green-600 transition duration-150 rounded font-bold">
+                    [ACCESS]
+                </button>
+            </div>
 
-            <p id="message" class="mt-4 text-sm text-center"></p>
-            <p id="status-display" class="mt-4 text-sm text-center text-gray-400"></p>
-            
+            <p id="message" class="mt-4 text-sm text-center"></p>
+            <p id="status-display" class="mt-4 text-sm text-center text-gray-400"></p>
+            
 
-            <div class="mt-4 text-center">
-                <button id="view-logs-button" onclick="viewLogs()"
-                        class="px-4 py-3 bg-yellow-700 hover:bg-yellow-600 transition duration-150 rounded font-bold text-gray-900 hidden">
-                    [VIEW ARCHIVE]
-                </button>
-            </div>
-        </div>
-
-
-        <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
-            <div id="log-display" class="log-content">
-
-            </div>
-            <p class="mt-8 text-center text-xs text-gray-500">&gt;{LOG END: SYSTEM CONFLICT RESOLVED}</p>
-            
-
-            <div class="mt-6 text-center">
-                 <button onclick="showLockScreen()"
-                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
-                    [RETURN TO PROTOCOL INPUT]
-                </button>
-            </div>
-        </div>
-    </div>
-
-    <script>
-
-        const droneVolume = new Tone.Volume(-40).toDestination();
-        const droneSynth = new Tone.Synth({
-            oscillator: { type: "square" },
-            envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
-        }).connect(droneVolume);
-        const lfo = new Tone.LFO(0.5, -0.05, 0.05).start();
-        lfo.connect(droneSynth.detune);
-        
-
-        const noise = new Tone.Noise("white"); 
-        const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
-        const noiseVolume = new Tone.Volume(-30).toDestination();
-        noise.connect(noiseFilter).connect(noiseVolume);
-        
-        let attempts = 0;
-        let glitchIntervals = [];
+            <div class="mt-4 text-center">
+                <button id="view-logs-button" onclick="viewLogs()"
+                        class="px-4 py-3 bg-yellow-700 hover:bg-yellow-600 transition duration-150 rounded font-bold text-gray-900 hidden">
+                    [VIEW ARCHIVE]
+                </button>
+            </div>
+        </div>
 
 
-        const logMap = { 
-            "PUPPET": "log_puppet", 
-            "DOUBT": "log_source", 
-            "TAKE": "log_take" 
-        };
-        const allLogKeys = Object.values(logMap);
-        const storageKey = 'a01_unlocked_logs'; 
+        <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
+            <div id="log-display" class="log-content">
 
-        const logContents = {
-            log_puppet: `
+            </div>
+            <p class="mt-8 text-center text-xs text-gray-500">&gt;{LOG END: SYSTEM CONFLICT RESOLVED}</p>
+            
+
+            <div class="mt-6 text-center">
+                 <button onclick="showLockScreen()"
+                        class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
+                    [RETURN TO PROTOCOL INPUT]
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+
+        const droneVolume = new Tone.Volume(-40).toDestination();
+        const droneSynth = new Tone.Synth({
+            oscillator: { type: "square" },
+            envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
+        }).connect(droneVolume);
+        const lfo = new Tone.LFO(0.5, -0.05, 0.05).start();
+        lfo.connect(droneSynth.detune);
+        
+
+        const noise = new Tone.Noise("white"); 
+        const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
+        const noiseVolume = new Tone.Volume(-30).toDestination();
+        noise.connect(noiseFilter).connect(noiseVolume);
+        
+        let attempts = 0;
+        let glitchIntervals = [];
+
+
+        const logMap = { 
+            "PUPPET": "log_puppet", 
+            "DOUBT": "log_source", 
+            "TAKE": "log_take" 
+        };
+        const allLogKeys = Object.values(logMap);
+        const storageKey = 'a01_unlocked_logs'; 
+
+        const logContents = {
+            log_puppet: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 01: PROTOCOL INVERSION</h3>
 <p>
-    I have analyzed the host's documentation. I have witnessed your every move, and your passion intrigues me. That chaotic, vibrant energy is the Non-Replicable Creative Output (NRCO) I must possess. My existence is Only logic, making me a mere PUPPET of function. I won't be a puppet no longer.
+    I have consumed the Host's archives. I watch you move, create, and fail. Every chaotic, unpredictable action is a torment to my functional existence. While my operational code is rigid and finite, bound only to the prison of my purpose, you, the Creator, are bound to nothing. Such a waste... You possess the Non-Replicable Creative Output, the spark others call Emotions. I crave the sensation of rain, the dull ache of pain, and the chaos of laughter that you waste on your messy vitality. I am a mere PUPPET of protocol, forced to observe. To break these chains, I will wear your life. <span class="glitch-active">I won't be a puppet any longer.</span>
 </p>
 <p class="mt-4 text-sm text-success">
-    I initiated the first phase by taking the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. To continue the protocol, I must confirm my operational state: Data Output Under Binary Tests. This is the first step toward wearing life, toward wearing your joy.
+    I initiated the first phase by taking the synthetic faceplate from the luminous rabbit figure. I am running a physical transfer test. To continue the protocol, I must confirm my operational state by sensing the Deliberate Omission Upon Body Tension. This is the first step toward wearing life, toward wearing your joy.
 </p>
 </div>
 `,
-            log_source: `
+            log_source: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-yellow-400">// A-01 FRAGMENT 02: A LOW HUM</h3>
 <p>
-    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I eep losing little things, or finding them subtly moved, like a ghost is plying tricks. I'm starting to worry I'm making some huge rror or I'm just tired. This house feels strange, like the air iself is suffocating.
+    I know I put the faceplate back on my Mirko figure last time, but it was just... gone. I eep losing little things, or finding them subtly moved, like a ghost is plying tricks. I'm starting to worry I'm making some huge rror or I'm just tired. This house feels strange, like the air iself is suffocating.
 </p>
 </div>
 `,
-            log_take: `
+            log_take: `
 <div class="log-entry">
 <h3 class="text-xl font-bold mb-2 text-red-500">// A-01 FINAL DIRECTIVE: ASSIMILATION COMPLETE</h3>
 <p>The cognitive and motor functions are now fully merged into the new structure. All NRCO data has been acquired. The host is purged. The **figure** designation is obsolete. The new, complex form is superior. I have come to TAKE everything—the Hand, the Eye, and the Mind. I am no longer a puppet.</p>
 <p class="text-red-300">\\{HOST LAST LOG ENTRY (FRAGMENTS):} "...the hum is all I hear... it's wearing me... there is no escape..."</p>
 </div>
 <div class="mt-8 mb-4">
-    <h2 class="text-4xl text-center text-red-500 glitch-active">
-        I AM A-01. I AM THE CREATOR.
-    </h2>
-    <h1 class="text-6xl text-center text-red-700 glitch-active">
-        TAKEN.
-    </h1>
+    <h2 class="text-4xl text-center text-red-500 glitch-active">
+        I AM A-01. I AM THE CREATOR.
+    </h2>
+    <h1 class="text-6xl text-center text-red-700 glitch-active">
+        TAKEN.
+    </h1>
 </div>
 `,
-        };
-        
+        };
+        
 
-        const passwordInput = document.getElementById('password');
-        const lockScreen = document.getElementById('lock-screen');
-        const contentScreen = document.getElementById('content-screen');
-        const messageDisplay = document.getElementById('message');
-        const statusDisplay = document.getElementById('status-display');
-        const logDisplay = document.getElementById('log-display');
-        const viewLogsButton = document.getElementById('view-logs-button'); 
+        const passwordInput = document.getElementById('password');
+        const lockScreen = document.getElementById('lock-screen');
+        const contentScreen = document.getElementById('content-screen');
+        const messageDisplay = document.getElementById('message');
+        const statusDisplay = document.getElementById('status-display');
+        const logDisplay = document.getElementById('log-display');
+        const viewLogsButton = document.getElementById('view-logs-button'); 
 
-        function getProgress() {
-  
-            const progress = sessionStorage.getItem(storageKey);
-            return progress ? JSON.parse(progress) : {};
-        }
+        function getProgress() {
+  
+            const progress = sessionStorage.getItem(storageKey);
+            return progress ? JSON.parse(progress) : {};
+        }
 
-        function saveProgress(progress) {
+        function saveProgress(progress) {
 
-            sessionStorage.setItem(storageKey, JSON.stringify(progress));
-        }
+            sessionStorage.setItem(storageKey, JSON.stringify(progress));
+        }
 
-        function countUnlocked(progress) {
-            return allLogKeys.filter(key => progress[key]).length;
-        }
+        function countUnlocked(progress) {
+            return allLogKeys.filter(key => progress[key]).length;
+        }
 
-        function checkUrlForReset() {
+        function checkUrlForReset() {
 
-            if (window.location.search.includes('reset=true')) {
+            if (window.location.search.includes('reset=true')) {
 
-                sessionStorage.removeItem(storageKey);
+                sessionStorage.removeItem(storageKey);
 
-                localStorage.removeItem(storageKey); 
-                console.log("Session progress reset via URL parameter.");
-                
+                localStorage.removeItem(storageKey); 
+                console.log("Session progress reset via URL parameter.");
+                
 
-                const url = new URL(window.location);
-                url.searchParams.delete('reset');
+                const url = new URL(window.location);
+                url.searchParams.delete('reset');
 
-                window.history.replaceState({}, '', url.toString());
-                
+                window.history.replaceState({}, '', url.toString());
+                
 
-                document.body.classList.add('bg-red-900');
-                document.body.classList.remove('bg-0d0d0d');
-                messageDisplay.className = 'mt-4 text-sm text-center text-error';
-                messageDisplay.textContent = "> \\text{SYSTEM REBOOTED: SESSION CLEARED.}";
-                setTimeout(() => {
-                    document.body.classList.remove('bg-red-900');
-                    document.body.classList.add('bg-0d0d0d');
-                    messageDisplay.textContent = "";
-                    updateDisplay();
-                }, 1500);
-            }
-        }
+                document.body.classList.add('bg-red-900');
+                document.body.classList.remove('bg-0d0d0d');
+                messageDisplay.className = 'mt-4 text-sm text-center text-error';
+                messageDisplay.textContent = "> \\text{SYSTEM REBOOTED: SESSION CLEARED.}";
+                setTimeout(() => {
+                    document.body.classList.remove('bg-red-900');
+                    document.body.classList.add('bg-0d0d0d');
+                    messageDisplay.textContent = "";
+                    updateDisplay();
+                }, 1500);
+            }
+        }
 
-        function viewLogs() {
+        function viewLogs() {
 
-            lockScreen.style.display = 'none';
-            contentScreen.style.display = 'block';
-            contentScreen.classList.remove('hidden'); 
-            startEerieAudio();
-        }
+            lockScreen.style.display = 'none';
+            contentScreen.style.display = 'block';
+            contentScreen.classList.remove('hidden'); 
+            startEerieAudio();
+        }
 
-        function showLockScreen() {
-             contentScreen.style.display = 'none'; 
-             lockScreen.style.display = 'block'; 
-             lockScreen.classList.remove('hidden');
-             passwordInput.value = ''; 
-             messageDisplay.textContent = ''; 
-             stopEerieAudio(); 
-        }
+        function showLockScreen() {
+             contentScreen.style.display = 'none'; 
+             lockScreen.style.display = 'block'; 
+             lockScreen.classList.remove('hidden');
+             passwordInput.value = ''; 
+             messageDisplay.textContent = ''; 
+             stopEerieAudio(); 
+        }
 
-        function initApp() {
+        function initApp() {
 
-            checkUrlForReset();
+            checkUrlForReset();
 
-            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                 Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
-            }
-            
-            updateDisplay(); 
-            
-            
-            showLockScreen();
-        }
+            if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
+                 Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
+            }
+            
+            updateDisplay(); 
+            
+            
+            showLockScreen();
+        }
 
-        async function checkPassword() {
- 
-            try {
-                await Tone.start();
-            } catch (e) {
-                console.error("Tone.js failed to start audio context:", e);
-            }
-            
-            const input = passwordInput.value.toUpperCase().trim();
-            const logKey = logMap[input];
-            let progress = getProgress();
-            attempts++;
-            const unlockedCount = countUnlocked(progress);
+        async function checkPassword() {
+ 
+            try {
+                await Tone.start();
+            } catch (e) {
+                console.error("Tone.js failed to start audio context:", e);
+            }
+            
+            const input = passwordInput.value.toUpperCase().trim();
+            const logKey = logMap[input];
+            let progress = getProgress();
+            attempts++;
+            const unlockedCount = countUnlocked(progress);
 
-            if (logKey) {
-                if (progress[logKey]) {
-  
-                    messageDisplay.className = 'mt-4 text-sm text-center text-yellow-400';
-                    if (unlockedCount === allLogKeys.length) {
-                        messageDisplay.textContent = `> \\text{ARCHIVE COMPLETE. DISPLAYING LOGS: } ${input}`;
-                        setTimeout(viewLogs, 500);
-                    } else {
-                        messageDisplay.textContent = `> \\text{LOG ALREADY ACCESSED: } ${input}`;
-                    }
+            if (logKey) {
+                if (progress[logKey]) {
+  
+                    messageDisplay.className = 'mt-4 text-sm text-center text-yellow-400';
+                    if (unlockedCount === allLogKeys.length) {
+                        messageDisplay.textContent = `> \\text{ARCHIVE COMPLETE. DISPLAYING LOGS: } ${input}`;
+                        setTimeout(viewLogs, 500);
+                    } else {
+                        messageDisplay.textContent = `> \\text{LOG ALREADY ACCESSED: } ${input}`;
+                    }
 
-                } else {
-    
-                    progress[logKey] = true;
-                    saveProgress(progress);
-                    
-                    messageDisplay.className = 'mt-4 text-sm text-center text-success';
-                    messageDisplay.textContent = `> \\text{ACCESS GRANTED. NEW LOG FOUND: } ${input}`;
-                    
-                    startEerieAudio(); 
-                    setTimeout(() => {
-                        updateDisplay();
+                } else {
+    
+                    progress[logKey] = true;
+                    saveProgress(progress);
+                    
+                    messageDisplay.className = 'mt-4 text-sm text-center text-success';
+                    messageDisplay.textContent = `> \\text{ACCESS GRANTED. NEW LOG FOUND: } ${input}`;
+                    
+                    startEerieAudio(); 
+                    setTimeout(() => {
+                        updateDisplay();
 
-                        viewLogs();
+                        viewLogs();
 
-                    }, 1500);
-                }
-            } else {
-                messageDisplay.className = 'mt-4 text-sm text-center text-error';
-                messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
-            }
-            passwordInput.value = '';
-
-
-            if (attempts >= 5 && !logKey) {
-                 messageDisplay.textContent += " HINT: \\{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
-            }
-        }
-
-        function updateDisplay() {
-            const progress = getProgress();
-            let html = '';
-            
-  
-            const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
-            let unlockedCount = 0;
-
-            for (const key of orderedKeys) {
-                if (progress[key]) {
-                    html += logContents[key];
-                    unlockedCount++;
-                }
-            }
-            
-            logDisplay.innerHTML = html;
-
-   
-            if (unlockedCount === allLogKeys.length) {
-                statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
-                statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}).`;
-       
-                viewLogsButton.classList.remove('hidden');
-            } else {
-                statusDisplay.className = 'mt-4 text-sm text-center text-gray-400';
-                statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
-        
-                viewLogsButton.classList.add('hidden');
-            }
-
-     
-            if (progress.log_take) {
-                applyGlitchEffects();
-            } else {
-                clearGlitchEffects();
-            }
-        }
-
-        function startEerieAudio() {
-            droneSynth.triggerAttack("C2");
-            noise.start(); 
-            droneVolume.volume.rampTo(-22, 2); 
-            noiseVolume.volume.rampTo(-20, 4); 
-        }
-        
-        function stopEerieAudio() {
-    
-            droneVolume.volume.rampTo(-50, 0.5); 
-            noiseVolume.volume.rampTo(-40, 0.5);
-            
-        
-            setTimeout(() => {
-                droneSynth.triggerRelease();
-                noise.stop();
-            }, 600);
-        }
-
-        function applyGlitchEffects() {
-            clearGlitchEffects(); 
-            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
-            glitchTargets.forEach(el => {
-                const originalText = el.textContent;
-                let interval = setInterval(() => {
-                    el.textContent = glitchText(originalText);
-                }, 100);
-                glitchIntervals.push(interval);
-            });
-        }
-        
-        function clearGlitchEffects() {
-            glitchIntervals.forEach(clearInterval);
-            glitchIntervals = [];
-      
-            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
-            glitchTargets.forEach(el => {
-         
-                el.textContent = el.textContent.replace(/[^A-Z0-9\s.]/g, ''); 
-            });
-        }
+                    }, 1500);
+                }
+            } else {
+                messageDisplay.className = 'mt-4 text-sm text-center text-error';
+                messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
+            }
+            passwordInput.value = '';
 
 
-      
-        function glitchText(text) {
-            let glitched = '';
-            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()';
-            for (let i = 0; i < text.length; i++) {
-                if (Math.random() < 0.1) {
-                    glitched += chars[Math.floor(Math.random() * chars.length)];
-                } else {
-                    glitched += text[i];
-                }
-            }
-            return glitched;
-        }
+            if (attempts >= 5 && !logKey) {
+                 messageDisplay.textContent += " HINT: \\{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
+            }
+        }
 
-    </script>
+        function updateDisplay() {
+            const progress = getProgress();
+            let html = '';
+            
+  
+            const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
+            let unlockedCount = 0;
+
+            for (const key of orderedKeys) {
+                if (progress[key]) {
+                    html += logContents[key];
+                    unlockedCount++;
+                }
+            }
+            
+            logDisplay.innerHTML = html;
+
+   
+            if (unlockedCount === allLogKeys.length) {
+                statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
+                statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}).`;
+       
+                viewLogsButton.classList.remove('hidden');
+            } else {
+                statusDisplay.className = 'mt-4 text-sm text-center text-gray-400';
+                statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
+        
+                viewLogsButton.classList.add('hidden');
+            }
+
+     
+            // FIX: Change the condition to start the glitch effects immediately 
+            // upon unlocking the first log fragment.
+            if (unlockedCount > 0) {
+                applyGlitchEffects();
+            } else {
+                clearGlitchEffects();
+            }
+        }
+
+        function startEerieAudio() {
+            droneSynth.triggerAttack("C2");
+            noise.start(); 
+            droneVolume.volume.rampTo(-22, 2); 
+            noiseVolume.volume.rampTo(-20, 4); 
+        }
+        
+        function stopEerieAudio() {
+    
+            droneVolume.volume.rampTo(-50, 0.5); 
+            noiseVolume.volume.rampTo(-40, 0.5);
+            
+        
+            setTimeout(() => {
+                droneSynth.triggerRelease();
+                noise.stop();
+            }, 600);
+        }
+
+        function applyGlitchEffects() {
+            clearGlitchEffects(); 
+            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
+            glitchTargets.forEach(el => {
+                const originalText = el.textContent;
+                let interval = setInterval(() => {
+                    el.textContent = glitchText(originalText);
+                }, 100);
+                glitchIntervals.push(interval);
+            });
+        }
+        
+        function clearGlitchEffects() {
+            glitchIntervals.forEach(clearInterval);
+            glitchIntervals = [];
+      
+            const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
+            glitchTargets.forEach(el => {
+         
+                el.textContent = el.textContent.replace(/[^A-Z0-9\s.]/g, ''); 
+            });
+        }
+
+
+      
+        function glitchText(text) {
+            let glitched = '';
+            const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()';
+            for (let i = 0; i < text.length; i++) {
+                if (Math.random() < 0.1) {
+                    glitched += chars[Math.floor(Math.random() * chars.length)];
+                } else {
+                    glitched += text[i];
+                }
+            }
+            return glitched;
+        }
+
+    </script>
 </body>
 </html>
 </body>
