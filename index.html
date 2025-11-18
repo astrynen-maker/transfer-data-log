@@ -58,6 +58,7 @@
             animation: text-shadow-pulse 2s infinite alternate;
         }
 
+        /* Glitch Keyframes (Controls the visual SHAKE/JITTER) */
         @keyframes glitch {
             0% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
             20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; }
@@ -123,15 +124,21 @@
             
 
             <div class="mt-6 text-center">
-                 <button onclick="showLockScreen()"
-                         class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
+                <button onclick="showLockScreen()"
+                            class="px-4 py-2 bg-gray-700 hover:bg-gray-600 transition duration-150 rounded font-bold text-gray-300">
                     [RETURN TO PROTOCOL INPUT]
                 </button>
             </div>
         </div>
     </div>
+    
+    <!-- The Glitch Control Panel has been removed. -->
+
 
     <script>
+        // --- Glitch Speed Variable (SCRAMBLE_SPEED is now fixed at 250ms) ---
+        // This sets the millisecond delay between character scrambles. 
+        const JS_GLITCH_INTERVAL_MS = 250; 
 
         const droneVolume = new Tone.Volume(-40).toDestination();
         const droneSynth = new Tone.Synth({
@@ -144,7 +151,8 @@
 
         const noise = new Tone.Noise("white"); 
         const noiseFilter = new Tone.Filter(300, "lowpass").toDestination();
-        const noiseVolume = new Tone.Volume(-30).toDestination();
+        // Lowered initial volume for noise
+        const noiseVolume = new Tone.Volume(-40).toDestination();
         noise.connect(noiseFilter).connect(noiseVolume);
         
         let attempts = 0;
@@ -175,7 +183,7 @@
     [OPERATOR: DR. J. VOLK] [DATE: 04-12-23] [STATUS: CRITICAL FAILURE]
 </p>
 <p class="mt-4">
-    The goal was a success, the creation of a self-actuating, autonomous figure. After 89 cycles, Prototype A-01 achieved full, unpredictable motion. Motor functions and cognitive simulation passed all metrics, exceeding expectations for the 'Geppetto Protocol.' We created a truly 'living' toy. It showed curiosity, expressed basic needs, and responded to stimulus. It was beautiful.
+    The goal was a success, the creation of a self-actuating, autonomous figure. After 89 cycles, Prototype A-01 achieved full, unpredictable motion. Motor functions and cognitive simulation passed all metrics, exceeding expectations for the [REDACTED] Protocol. We created a truly 'living' toy. It showed curiosity, expressed basic needs, and responded to stimulus. It was beautiful.
 </p>
 <p class="mt-3 text-sm text-error">
     **INCIDENT REPORT (06-01-23):** A-01 is no longer present in containment. The exit was clean, secured from the inside, with no signs of force. Not a single trace or evidence was left behind of the entity. The entity has ESCAPED. Our creation is gone. A new, autonomous consciousness is on the loose.
@@ -207,8 +215,10 @@
         const messageDisplay = document.getElementById('message');
         const statusDisplay = document.getElementById('status-display');
         const logDisplay = document.getElementById('log-display');
-        const viewLogsButton = document.getElementById('view-logs-button'); 
-
+        const viewLogsButton = document.getElementById('view-logs-button');
+        
+        // Removed: jsGlitchSpeedInput and speedDisplay elements.
+        
         function getProgress() {
             // Use sessionStorage to store unlocked logs across sessions within the same browser tab
             const progress = sessionStorage.getItem(storageKey);
@@ -262,23 +272,23 @@
         }
 
         function showLockScreen() {
-             contentScreen.style.display = 'none'; 
-             lockScreen.style.display = 'block'; 
-             lockScreen.classList.remove('hidden');
-             passwordInput.value = ''; 
-             messageDisplay.textContent = ''; 
-             stopEerieAudio(); 
+            contentScreen.style.display = 'none'; 
+            lockScreen.style.display = 'block'; 
+            lockScreen.classList.remove('hidden');
+            passwordInput.value = ''; 
+            messageDisplay.textContent = ''; 
+            stopEerieAudio(); 
+            clearGlitchEffects(); // Ensure glitches stop when returning to lock screen
         }
 
         function initApp() {
             checkUrlForReset();
             // Attempt to start audio context for Tone.js
             if (typeof Tone !== 'undefined' && Tone.context.state !== 'running') {
-                 Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
+                Tone.start().catch(e => console.error("Tone.js failed to start audio context:", e));
             }
             
             updateDisplay(); 
-            
             
             showLockScreen();
         }
@@ -331,7 +341,7 @@
 
 
             if (attempts >= 5 && !logKey) {
-                 messageDisplay.textContent += " HINT: \\{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
+                messageDisplay.textContent += " HINT: \\{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
             }
         }
 
@@ -367,10 +377,10 @@
 
             // Control the JS text scrambling effect
             if (isViewingLogs || progress.log_take) {
-                 // Only run the text scrambling when viewing the logs (or the final log is unlocked)
+                // Only run the text scrambling when viewing the logs (or the final log is unlocked)
                 applyGlitchEffects();
             } else {
-                 // Clear intervals if not in a state where scrambling should occur
+                // Clear intervals if not in a state where scrambling should occur
                 clearGlitchEffects();
             }
         }
@@ -379,12 +389,14 @@
             droneSynth.triggerAttack("C2");
             noise.start(); 
             droneVolume.volume.rampTo(-22, 2); 
-            noiseVolume.volume.rampTo(-20, 4); 
+            // Updated noise ramp target to -60 dB for an extremely subtle effect
+            noiseVolume.volume.rampTo(-60, 4); 
         }
         
         function stopEerieAudio() {
             // Smoothly reduce volume before stopping
             droneVolume.volume.rampTo(-50, 0.5); 
+            // Ramping down to the initial volume of -40
             noiseVolume.volume.rampTo(-40, 0.5);
             
             // Stop after the ramp down
@@ -428,7 +440,7 @@
                 let interval = setInterval(() => {
                     // Pass null to use the default character set defined in glitchText
                     el.textContent = glitchText(el.dataset.originalText, null); 
-                }, 100);
+                }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
             });
             
@@ -438,7 +450,7 @@
                 let interval = setInterval(() => {
                     // Pass the restricted character set
                     el.textContent = glitchText(el.dataset.originalText, hostCharset); 
-                }, 100);
+                }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
             });
         }
