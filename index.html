@@ -148,9 +148,8 @@
         // Tone.js setup
         const masterVolume = new Tone.Volume(-10).toDestination();
 
-        // Increased ambient base levels so they remain audible at lower master settings (e.g., -50 dB).
-        // If this is too loud at higher master volumes, we can make this conditional based on master or add attenuation.
-        const droneVolume = new Tone.Volume(-6).connect(masterVolume);   // was -40, now -6
+        // Ambient defaults (kept louder so audible around -50 dB)
+        const droneVolume = new Tone.Volume(-6).connect(masterVolume);
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
             envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
@@ -160,17 +159,13 @@
 
         const noise = new Tone.Noise("white");
         const noiseFilter = new Tone.Filter(300, "lowpass").connect(masterVolume);
-        const noiseVolume = new Tone.Volume(-8).connect(noiseFilter);   // was -40, now -8
+        const noiseVolume = new Tone.Volume(-8).connect(noiseFilter);
         noise.connect(noiseVolume);
 
         // Clue audio setup
-        // Gate now only at -60 dB (both lower and upper set to -60)
         const TARGET_DB_LOWER = -60;
         const TARGET_DB_UPPER = -60;
 
-        // takePlayer can be:
-        // - a Tone.Player instance (preferred)
-        // - an HTMLAudioElement (fallback)
         let takePlayer = null;
         const takeReverb = new Tone.Reverb(0.5);
         const takeClueVolume = new Tone.Volume(-Infinity);
@@ -183,7 +178,6 @@
         let fallbackLoopId = null;
         let fallbackDrone = { vol: null, sub: null, grunt: null, noise: null, delay: null, filterLFO: null, detuneLFO: null };
 
-        // App data
         const JS_GLITCH_INTERVAL_MS = 250;
         let attempts = 0;
         let glitchIntervals = [];
@@ -192,7 +186,6 @@
         const allLogKeys = Object.values(logMap);
         const storageKey = 'a01_unlocked_logs';
 
-        // Reset progress on refresh/close
         ['beforeunload', 'pagehide'].forEach(evt =>
           window.addEventListener(evt, () => {
             try { sessionStorage.removeItem(storageKey); } catch (e) {}
@@ -243,7 +236,6 @@
 `,
         };
 
-        // DOM refs (script placed at document end so these exist)
         const passwordInput = document.getElementById('password');
         const lockScreen = document.getElementById('lock-screen');
         const contentScreen = document.getElementById('content-screen');
@@ -319,16 +311,11 @@
             clearGlitchEffects();
         }
 
-        // Robust loader: prefer ArrayBuffer->decodeAudioData->Tone.Player(audioBuffer) then fallback to other strategies.
         async function generateAndLoadTakeAudio() {
-          // Only avoid duplicate work if we've already loaded a player successfully
           if (takeLoadAttempted && takePlayer) return;
-
-          // mark that we've attempted at least once (but allow retries if no player)
           takeLoadAttempted = true;
           console.log("[TAKE] generateAndLoadTakeAudio: decodeAudioData-first loader");
 
-          // ensure audio context is running (requires user gesture in many browsers)
           try {
             if (Tone && Tone.context && Tone.context.state !== 'running') {
               console.log('[TAKE] awaiting Tone.start() to ensure AudioContext is resumed by user gesture');
@@ -336,7 +323,6 @@
             }
           } catch (e) {
             console.warn('[TAKE] Tone.start() failed or was blocked:', e);
-            // continue — loader will still try best-effort fallbacks
           }
 
           const owner = 'astrynen-maker';
@@ -350,7 +336,6 @@
 
           for (const url of candidates) {
             console.log('[TAKE] trying candidate url:', url);
-            // Quick reachability test
             let resp;
             try {
               resp = await fetch(url, { method: 'GET', mode: 'cors' });
@@ -364,30 +349,24 @@
               continue;
             }
 
-            // Try decodeAudioData (ArrayBuffer -> AudioBuffer -> Tone.Player(AudioBuffer))
             try {
               const ab = await resp.arrayBuffer();
               console.log('[TAKE] arrayBuffer length', ab.byteLength);
               const audioBuf = await Tone.context.decodeAudioData(ab);
               console.log('[TAKE] decoded AudioBuffer, duration:', audioBuf.duration);
-              // create Tone.Player directly from decoded AudioBuffer
               const p = new Tone.Player(audioBuf).connect(takeClueVolume);
               p.loop = true;
               p.playbackRate = 0.85;
-              // ensure a small dry presence and some reverb for character
               try { takeReverb.wet.value = 0.2; } catch(e) {}
-              // tone player created from AudioBuffer doesn't need load() — buffer is already present
               takePlayer = p;
               console.log('[TAKE] Tone.Player(audiobuffer) created successfully for', url);
               stopFallbackEffects();
-              // alias for backward compatibility
               startSpeechFallbackLoop = speakTakeFallback;
               return;
             } catch (decodeErr) {
               console.warn('[TAKE] decodeAudioData -> Tone.Player(audiobuffer) failed for', url, decodeErr);
             }
 
-            // If decode approach failed, try Tone.Player(url) (may still throw in some envs)
             try {
               console.log('[TAKE] attempting Tone.Player(url) fallback for', url);
               const p2 = new Tone.Player({ url, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
@@ -402,7 +381,6 @@
               console.warn('[TAKE] Tone.Player(url) failed for', url, playerErr);
             }
 
-            // Next fallback: HTMLAudio element
             try {
               console.log('[TAKE] attempting HTMLAudio fallback for', url);
               const audio = new Audio(url);
@@ -424,12 +402,10 @@
             }
           }
 
-          // All attempts failed — use the TTS fallback
           console.warn('[TAKE] All candidate URL attempts failed — using speech fallback');
           try { speakTakeFallback(); } catch (e) { console.warn('[TAKE] speakTakeFallback call failed', e); }
         }
 
-        // stop the fallback: clear intervals, cancel speech, fade/stop drone nodes
         function stopFallbackEffects() {
             if (fallbackLoopActive) {
                 fallbackLoopActive = false;
@@ -456,9 +432,7 @@
             }
         }
 
-        // monster-like fallback: growl bed + slow normal "take" speech, looped and very quiet
         async function speakTakeFallback() {
-            // prefer the real file
             if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
                 try { takePlayer.start(); } catch (e) {}
                 return;
@@ -468,10 +442,8 @@
             fallbackLoopActive = true;
             console.log('[TAKE] starting monster fallback loop');
 
-            // cancel queued speech
             try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
 
-            // ensure voices loaded (non-blocking)
             let voices = (window.speechSynthesis && window.speechSynthesis.getVoices) ? window.speechSynthesis.getVoices() : [];
             if ((!voices || voices.length === 0) && 'onvoiceschanged' in window && window.speechSynthesis) {
                 window.speechSynthesis.onvoiceschanged = () => {
@@ -480,27 +452,23 @@
             }
             const deepVoice = (voices || []).find(v => /Google|Microsoft|Samantha|Alex|en-US|male|deep|bass/i.test((v.name || '') + ' ' + (v.lang || ''))) || (voices && voices[0]) || null;
 
-            // Build quiet growl bed using Tone.js
             try {
                 if (Tone && Tone.context && Tone.context.state !== 'running') {
                     await Tone.start();
                 }
 
-                const vol = new Tone.Volume(-72).connect(takeClueVolume); // base extremely quiet
+                const vol = new Tone.Volume(-72).connect(takeClueVolume);
                 const sub = new Tone.Oscillator(36, 'sine').connect(vol);
                 const grunt = new Tone.Oscillator(78, 'sawtooth').connect(vol);
 
-                // bandpass filter to make the growl vocal-like
                 const growlFilter = new Tone.Filter(120, 'bandpass').connect(vol);
                 sub.connect(growlFilter);
                 grunt.connect(growlFilter);
 
-                // filtered noise for breathiness
                 const pink = new Tone.Noise('pink');
                 const pinkFilt = new Tone.Filter(220, 'lowpass').connect(growlFilter);
                 pink.connect(pinkFilt);
 
-                // mild distortion and delay for texture
                 const dist = new Tone.Distortion(0.6).connect(growlFilter);
                 const fbDelay = new Tone.FeedbackDelay('8n', 0.45).connect(growlFilter);
                 growlFilter.connect(dist);
@@ -516,7 +484,6 @@
                 grunt.start();
                 pink.start();
 
-                // slow, very quiet fade in
                 vol.volume.rampTo(-52, 0.2);
                 setTimeout(() => vol.volume.rampTo(-48, 0.9), 260);
 
@@ -531,7 +498,6 @@
                 console.warn('[TAKE] growl bed failed:', e);
             }
 
-            // Helper: speak one normal "take" (plain spelling) slowly and softly
             function speakOne() {
                 try {
                     if (!('speechSynthesis' in window)) return;
@@ -539,13 +505,11 @@
 
                     const u = new SpeechSynthesisUtterance('take');
                     if (deepVoice) u.voice = deepVoice;
-                    // slower and slightly lower but not overly exotic
-                    u.rate = 0.82;   // moderately slow (not robotic)
-                    u.pitch = 0.55;  // slightly low
+                    u.rate = 0.82;
+                    u.pitch = 0.55;
                     try { u.volume = 0.6; } catch (e) {}
 
                     u.onstart = () => {
-                        // tiny swell when voice starts
                         try {
                             if (fallbackDrone.vol) {
                                 fallbackDrone.vol.volume.cancelScheduledValues();
@@ -565,7 +529,6 @@
                 }
             }
 
-            // Start immediately, then loop slowly with some random jitter
             speakOne();
             fallbackLoopId = setInterval(() => {
                 if (!fallbackLoopActive) {
@@ -573,38 +536,31 @@
                     fallbackLoopId = null;
                     return;
                 }
-                // If real file becomes available, stop fallback and play it
                 if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
                     stopFallbackEffects();
                     try { takePlayer.start(); } catch (e) {}
                     return;
                 }
                 speakOne();
-            }, 4200 + Math.floor(Math.random() * 1600)); // 4.2s + jitter
+            }, 4200 + Math.floor(Math.random() * 1600));
 
             console.log('[TAKE] monster fallback loop active (quiet, slow, normal "take")');
         }
 
-        // Backwards-compatible alias (some code may call startSpeechFallbackLoop)
         let startSpeechFallbackLoop = speakTakeFallback;
 
-        // Stop all TAKE-layer playback and fallback (Tone.Player or HTMLAudio)
         function stopAllTakeAudio() {
           try {
-            // Stop any grain loop (if present)
             try { stopGrainLoop && stopGrainLoop(); } catch(e) {}
-            // If HTMLAudio fallback is used
             if (takePlayer && typeof takePlayer.pause === 'function' && typeof takePlayer.currentTime !== 'undefined') {
               try { takePlayer.pause(); takePlayer.currentTime = 0; } catch (e) {}
             }
-            // Tone.Player stop
             if (takePlayer instanceof Tone.Player) {
               try { takePlayer.stop(); } catch (e) {}
             }
             try { if (takePlayer && takePlayer.dispose) takePlayer.dispose(); } catch (e) {}
             takePlayer = null;
 
-            // Fade some volumes safely
             try { droneVolume.volume.rampTo(-50, 0.4); } catch(e){}
             try { noiseVolume.volume.rampTo(-40, 0.4); } catch(e){}
           } catch(e){
@@ -612,16 +568,24 @@
           }
         }
 
-        // --- NEW HELPER: start the take reliably when gate opens ---
+        // --- NEW HELPER: start the take reliably when gate opens with auto-compensation ---
         async function _startTakeOnGateOpen(newVolume) {
           // Quiet ambient layers
           droneVolume.volume.rampTo(-90, 0.5);
           noiseVolume.volume.rampTo(-100, 0.5);
 
-          // Make the take audible relative to master by setting take's own gain to 0 dB (no attenuation).
-          takeClueVolume.volume.rampTo(0, 0.1);
+          // Auto-compensation: pick a safe audible target and compensate take gain so overall output is audible.
+          const DESIRED_OUTPUT_DB = -24; // chosen safe audible target
+          const currentMasterDb = (masterVolume && masterVolume.volume && typeof masterVolume.volume.value === 'number') ? masterVolume.volume.value : newVolume;
+          let compensationDb = DESIRED_OUTPUT_DB - currentMasterDb;
+          // clamp compensation to a safe range to avoid extreme boosts
+          const MAX_COMP_DB = 30;
+          const MIN_COMP_DB = -30;
+          compensationDb = Math.max(MIN_COMP_DB, Math.min(MAX_COMP_DB, compensationDb));
+          console.log('[TAKE] gate compensationDb', compensationDb, 'master', currentMasterDb, 'desiredOut', DESIRED_OUTPUT_DB);
+          takeClueVolume.volume.rampTo(compensationDb, 0.1);
 
-          // Ensure master is set exactly to the slider value (the gate is exactly at -60 dB)
+          // Ensure master has the slider value (gate is exactly at -60)
           masterVolume.volume.rampTo(newVolume, 0.05);
 
           // Stop any fallback/TTS immediately
@@ -638,25 +602,21 @@
           // If a Tone.Player is present and buffered, route it and start it
           if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
             try {
-              // Recreate a reliable routing: keep the reverbed chain but also add a direct dry route to master.
               try { takePlayer.disconnect(); } catch (e) {}
               try { takePlayer.connect(takeClueVolume); } catch (e) {}
               try { takePlayer.connect(masterVolume); } catch (e) {}
 
-              // ensure the reverb wet is reasonable so dry signal remains clear
               try { takeReverb.wet.value = Math.max(0, Math.min(0.4, takeReverb.wet.value || 0.2)); } catch(e){}
 
-              // restart cleanly so playback begins from start
               try { takePlayer.stop(); } catch(e) {}
               takePlayer.start(Tone.now());
-              console.log('[TAKE] started Tone.Player (gate-open, dry+reverb routing)');
+              console.log('[TAKE] started Tone.Player (gate-open, dry+reverb routing, compensated)');
             } catch (err) {
               console.warn('[TAKE] error starting Tone.Player on gate-open', err);
               speakTakeFallback();
             }
           } else if (takePlayer && typeof takePlayer.play === 'function') {
             try {
-              // HTMLAudio fallback: ensure audible volume and play from start
               try { takePlayer.pause(); takePlayer.currentTime = 0; } catch(e) {}
               try { takePlayer.volume = 1.0; } catch(e) {}
               await takePlayer.play();
@@ -666,19 +626,16 @@
               speakTakeFallback();
             }
           } else {
-            // If no player, fall back to TTS
             speakTakeFallback();
           }
         }
 
-        // Init and the rest of UI logic (unchanged, but kept here)
         function initApp() {
             checkUrlForReset();
             updateDisplay();
             showLockScreen();
             updateMasterVolume(volumeSlider.value);
 
-            // preload the user's audio file (best-effort)
             generateAndLoadTakeAudio().catch(err => {
                 console.warn("[TAKE] preload failed:", err);
             });
@@ -774,10 +731,8 @@
 
             droneSynth.triggerAttack("C2");
             noise.start();
-
-            // ramp ambient layers to the louder defaults so they remain audible at lower master values (e.g. -50 dB).
-            droneVolume.volume.rampTo(-6, 2);   // louder ambient target
-            noiseVolume.volume.rampTo(-8, 4);   // louder noise target
+            droneVolume.volume.rampTo(-6, 2);
+            noiseVolume.volume.rampTo(-8, 4);
 
             if (progress.log_source && !progress.log_take) {
                 if (takePlayer && !takePlayer.state) {
@@ -793,10 +748,7 @@
             droneVolume.volume.rampTo(-50, 0.5);
             noiseVolume.volume.rampTo(-40, 0.5);
 
-            // stop any take playback
             stopAllTakeAudio();
-
-            // ensure fallback stops
             stopFallbackEffects();
 
             setTimeout(() => {
@@ -804,11 +756,9 @@
                 try { noise.stop(); } catch (e) {}
             }, 600);
 
-            // soften the mute so tests and re-starts aren't left inaudible
             masterVolume.volume.rampTo(-40, 0.5);
         }
 
-        // Master volume gating and playback logic
         async function updateMasterVolume(dbString) {
             const newVolume = parseFloat(dbString);
             const progress = getProgress();
@@ -818,7 +768,6 @@
 
             if (progress.log_source && !progress.log_take) {
                 if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
-                    // call helper that reliably starts the take
                     await _startTakeOnGateOpen(newVolume);
                 } else {
                     takeClueVolume.volume.rampTo(-Infinity, 0.5);
@@ -840,7 +789,6 @@
             }
         }
 
-        // Glitch visuals
         function glitchText(text, charSet) {
             let glitched = '';
             const chars = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()+*<>';
