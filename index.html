@@ -1,8 +1,8 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
     <title>A-01 Diagnostic Log</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/tone/14.8.49/Tone.min.js"></script>
@@ -11,7 +11,7 @@
         body {
             font-family: 'Roboto Mono', monospace;
             background-color: #0d0d0d;
-            color: #00ff41; 
+            color: #00ff41;
             transition: background-color 1s ease-in-out, color 1s ease-in-out;
             cursor: crosshair;
         }
@@ -22,15 +22,14 @@
         }
         .text-error { color: #ff3333; }
         .text-success { color: #00ff41; }
-        
-        /* New dark glowing red style */
+
         .text-dark-glow-red {
-            color: #ff3333; /* Bright red text color */
+            color: #ff3333;
             text-shadow: 0 0 5px #ff3333, 
                          0 0 10px #cc0000, 
                          0 0 20px #990000;
         }
-        
+
         .log-content {
             border-left: 3px solid #00ff41;
             padding-left: 1rem;
@@ -58,7 +57,6 @@
             animation: text-shadow-pulse 2s infinite alternate;
         }
 
-        /* Glitch Keyframes (Controls the visual SHAKE/JITTER) */
         @keyframes glitch {
             0% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
             20% { transform: translate(-2px, 2px); text-shadow: 0 0 8px #ff00ff; }
@@ -67,13 +65,12 @@
             80% { transform: translate(1px, -1px); text-shadow: 0 0 8px #ff00ff; }
             100% { transform: translate(0, 0); text-shadow: 0 0 5px #00ff41; }
         }
-        
+
         @keyframes text-shadow-pulse {
             from { text-shadow: 0 0 5px #00ff41, 0 0 10px #00ff41; }
             to { text-shadow: 0 0 8px #00ff41, 0 0 15px #00ff41; }
         }
 
-        /* The general glitching effect applied via JS intervals */
         .glitch-active {
             animation: glitch 0.2s infinite alternate, text-shadow-pulse 2s infinite alternate;
         }
@@ -88,7 +85,7 @@
             </h1>
 
             <div class="mb-4">
-                <p class="text-sm mb-2">&gt;{FILE: TRANSFER\_PROTOCOL.TXT}</p>
+                <p class="text-sm mb-2">&gt;{FILE: TRANSFER_PROTOCOL.TXT}</p>
                 <p class="text-sm mb-2">&gt;{PROTOCOL: AUTHENTICATION REQUIRED}</p>
             </div>
 
@@ -105,7 +102,6 @@
 
             <p id="message" class="mt-4 text-sm text-center"></p>
             <p id="status-display" class="mt-4 text-sm text-center text-gray-400"></p>
-            
 
             <div class="mt-4 text-center">
                 <button id="view-logs-button" onclick="viewLogs()"
@@ -115,13 +111,10 @@
             </div>
         </div>
 
-
         <div id="content-screen" class="container-box w-full max-w-3xl p-8 rounded-lg" style="display: none;">
-            <!-- New Volume Control UI -->
             <div id="volume-control-box" class="mb-6 p-4 border border-gray-700 rounded-lg bg-gray-900 hidden">
-                <label for="master-volume-slider" class="block text-sm font-bold mb-2
-                text-gray-300">
-                    MASTER ARCHIVE VOLUME: 
+                <label for="master-volume-slider" class="block text-sm font-bold mb-2 text-gray-300">
+                    MASTER ARCHIVE VOLUME:
                     <span id="volume-value" class="text-yellow-400">-10.0 dB</span>
                 </label>
                 <input type="range" id="master-volume-slider" min="-100" max="-10" step="5" value="-10"
@@ -130,11 +123,8 @@
                 <p class="text-xs text-gray-500 mt-2 text-right">0.0 dB (Max) to -100.0 dB (Mute)</p>
             </div>
 
-            <div id="log-display" class="log-content">
-
-            </div>
+            <div id="log-display" class="log-content"></div>
             <p class="mt-8 text-center text-xs text-gray-500">&gt;{LOG END: SYSTEM CONFLICT RESOLVED}</p>
-            
 
             <div class="mt-6 text-center">
                 <button onclick="showLockScreen()"
@@ -144,59 +134,19 @@
             </div>
         </div>
     </div>
-    
 
     <script>
-        // --- TTS UTILITIES (Mandatory for processing API audio) ---
+        // --- Utilities ---
         function base64ToArrayBuffer(base64) {
             const binaryString = atob(base64);
             const len = binaryString.length;
             const bytes = new Uint8Array(len);
-            for (let i = 0; i < len; i++) {
-                bytes[i] = binaryString.charCodeAt(i);
-            }
+            for (let i = 0; i < len; i++) bytes[i] = binaryString.charCodeAt(i);
             return bytes.buffer;
         }
 
-        function pcmToWav(pcm16, sampleRate) {
-            const numChannels = 1;
-            const numSamples = pcm16.length;
-            const buffer = new ArrayBuffer(44 + numSamples * 2);
-            const view = new DataView(buffer);
-
-            function writeString(view, offset, string) {
-                for (let i = 0; i < string.length; i++) {
-                    view.setUint8(offset + i, string.charCodeAt(i));
-                }
-            }
-            writeString(view, 0, 'RIFF'); 
-            view.setUint32(4, 36 + numSamples * 2, true); 
-            writeString(view, 8, 'WAVE'); 
-            view.setUint32(12, 'fmt '.charCodeAt(0) | ('m'.charCodeAt(0) << 8) | ('t'.charCodeAt(0) << 16) | (' '.charCodeAt(0) << 24), true); // Fix: use explicit char codes for 'fmt '
-            view.setUint32(16, 16, true); 
-            view.setUint16(20, 1, true); 
-            view.setUint16(22, numChannels, true); 
-            view.setUint32(24, sampleRate, true); 
-            view.setUint32(28, sampleRate * numChannels * 2, true); 
-            view.setUint16(32, numChannels * 2, true); 
-            view.setUint16(34, 16, true); 
-            writeString(view, 36, 'data'); 
-            view.setUint32(40, numSamples * 2, true); 
-
-            let offset = 44;
-            for (let i = 0; i < numSamples; i++) {
-                view.setInt16(offset, pcm16[i], true);
-                offset += 2;
-            }
-
-            return new Blob([buffer], { type: 'audio/wav' });
-        }
-        
-        // --- TONE.JS AUDIO SETUP ---
-
-        // Set initial master volume to -10 dB as requested
-        const masterVolume = new Tone.Volume(-10).toDestination(); 
-
+        // Tone.js setup
+        const masterVolume = new Tone.Volume(-10).toDestination();
         const droneVolume = new Tone.Volume(-40).connect(masterVolume);
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
@@ -204,49 +154,32 @@
         }).connect(droneVolume);
         const lfo = new Tone.LFO(0.5, -0.05, 0.05).start();
         lfo.connect(droneSynth.detune);
-        
 
-        const noise = new Tone.Noise("white"); 
+        const noise = new Tone.Noise("white");
         const noiseFilter = new Tone.Filter(300, "lowpass").connect(masterVolume);
-        // Ambient static set to -40dB
         const noiseVolume = new Tone.Volume(-40).connect(noiseFilter);
         noise.connect(noiseVolume);
 
-        // Clue Audio Setup
-        const TTS_VOICE_NAME = "Charon"; 
-        
-        // Clue Threshold: -37dB to -27dB 
-        const TARGET_DB_LOWER = -37; 
-        const TARGET_DB_UPPER = -27; 
-        
-        let takePlayer = null; 
-        
-        // Reverb reduced to 0.5s for clarity
-        const takeReverb = new Tone.Reverb(0.5); 
-        
-        // This volume node controls the gate
-        const takeClueVolume = new Tone.Volume(-Infinity); 
-        
-        // Connection Chain: Gate -> Reduced Reverb -> Master Volume
-        takeClueVolume.chain(takeReverb, masterVolume);
-        
-        let takeLoadAttempted = false;
-        
-        
-        // --- CORE APPLICATION LOGIC ---
+        // Clue audio setup
+        const TTS_VOICE_NAME = "Charon";
+        const TARGET_DB_LOWER = -37;
+        const TARGET_DB_UPPER = -27;
 
-        const JS_GLITCH_INTERVAL_MS = 250; 
+        let takePlayer = null;
+        const takeReverb = new Tone.Reverb(0.5);
+        const takeClueVolume = new Tone.Volume(-Infinity);
+        takeClueVolume.chain(takeReverb, masterVolume);
+
+        let takeLoadAttempted = false;
+
+        // App data
+        const JS_GLITCH_INTERVAL_MS = 250;
         let attempts = 0;
         let glitchIntervals = [];
 
-
-        const logMap = { 
-            "PUPPET": "log_puppet", 
-            "HOST": "log_source", 
-            "TAKE": "log_take" 
-        };
+        const logMap = { "PUPPET": "log_puppet", "HOST": "log_source", "TAKE": "log_take" };
         const allLogKeys = Object.values(logMap);
-        const storageKey = 'a01_unlocked_logs'; 
+        const storageKey = 'a01_unlocked_logs';
 
         const logContents = {
             log_puppet: `
@@ -291,7 +224,6 @@
 </div>
 `,
         };
-        
 
         const passwordInput = document.getElementById('password');
         const lockScreen = document.getElementById('lock-screen');
@@ -303,8 +235,7 @@
         const volumeControlBox = document.getElementById('volume-control-box');
         const volumeSlider = document.getElementById('master-volume-slider');
         const volumeValueDisplay = document.getElementById('volume-value');
-        
-        
+
         function getProgress() {
             const progress = sessionStorage.getItem(storageKey);
             return progress ? JSON.parse(progress) : {};
@@ -321,13 +252,11 @@
         function checkUrlForReset() {
             if (window.location.search.includes('reset=true')) {
                 sessionStorage.removeItem(storageKey);
-                localStorage.removeItem(storageKey); 
+                localStorage.removeItem(storageKey);
                 console.log("Session progress reset via URL parameter.");
-                
                 const url = new URL(window.location);
                 url.searchParams.delete('reset');
                 window.history.replaceState({}, '', url.toString());
-                
                 document.body.classList.add('bg-red-900');
                 document.body.classList.remove('bg-0d0d0d');
                 messageDisplay.className = 'mt-4 text-sm text-center text-error';
@@ -343,51 +272,43 @@
 
         function viewLogs() {
             const progress = getProgress();
-            
-            // Show/Hide volume slider based on progress
-            if (progress.log_puppet) { // Only show once the first log is accessed
+
+            if (progress.log_puppet) {
                 volumeControlBox.classList.remove('hidden');
-                // Ensure audio is loaded if it's the first time viewing logs 
-                // and the user is in the "clue window"
                 if (progress.log_source && !progress.log_take && !takeLoadAttempted) {
-                    // Call the loader when logs are viewed if the conditions are met
+                    // Load the local TAKE audio when viewing logs in the clue window
                     generateAndLoadTakeAudio();
                 }
             } else {
                 volumeControlBox.classList.add('hidden');
             }
 
-
             lockScreen.style.display = 'none';
             contentScreen.style.display = 'block';
-            contentScreen.classList.remove('hidden'); 
-            
-            updateDisplay(true); 
+            contentScreen.classList.remove('hidden');
+
+            updateDisplay(true);
             startEerieAudio();
         }
 
         function showLockScreen() {
-            contentScreen.style.display = 'none'; 
-            lockScreen.style.display = 'block'; 
+            contentScreen.style.display = 'none';
+            lockScreen.style.display = 'block';
             lockScreen.classList.remove('hidden');
-            passwordInput.value = ''; 
-            messageDisplay.textContent = ''; 
-            stopEerieAudio(); 
-            clearGlitchEffects(); 
+            passwordInput.value = '';
+            messageDisplay.textContent = '';
+            stopEerieAudio();
+            clearGlitchEffects();
         }
 
         function initApp() {
             checkUrlForReset();
-            // Start audio context on user interaction (handled in checkPassword/viewLogs)
-            
-            updateDisplay(); 
+            updateDisplay();
             showLockScreen();
-            // This ensures the volume is correctly set to -10dB on load
-            updateMasterVolume(volumeSlider.value); 
+            updateMasterVolume(volumeSlider.value);
         }
 
         async function checkPassword() {
-            // **CRITICAL FIX:** Ensure the audio context is resumed on a user gesture
             if (Tone.context.state !== 'running') {
                 try {
                     await Tone.start();
@@ -396,7 +317,7 @@
                     console.error("Tone.js failed to start audio context on password check:", e);
                 }
             }
-            
+
             const input = passwordInput.value.toUpperCase().trim();
             const logKey = logMap[input];
             let progress = getProgress();
@@ -412,18 +333,17 @@
                     } else {
                         messageDisplay.textContent = `> \\text{LOG ALREADY ACCESSED: } ${input}`;
                     }
-
                 } else {
                     progress[logKey] = true;
                     saveProgress(progress);
-                    
+
                     messageDisplay.className = 'mt-4 text-sm text-center text-success';
                     messageDisplay.textContent = `> \\text{ACCESS GRANTED. NEW LOG FOUND: } ${input}`;
-                    
-                    startEerieAudio(); 
+
+                    startEerieAudio();
                     setTimeout(() => {
-                        updateDisplay(); 
-                        viewLogs(); 
+                        updateDisplay();
+                        viewLogs();
                     }, 1500);
                 }
             } else {
@@ -431,7 +351,6 @@
                 messageDisplay.textContent = `> \\text{ACCESS DENIED. REJECTED KEYWORD. ATTEMPTS: } ${attempts}`;
             }
             passwordInput.value = '';
-
 
             if (attempts >= 5 && !logKey) {
                 messageDisplay.textContent += " HINT: \\{THE KEYWORD RELATES TO A STAGE OF THE A-01 ACQUISITION PROTOCOL.}";
@@ -441,8 +360,7 @@
         function updateDisplay(isViewingLogs = false) {
             const progress = getProgress();
             let html = '';
-            
-            const orderedKeys = ["log_puppet", "log_source", "log_take"]; 
+            const orderedKeys = ["log_puppet", "log_source", "log_take"];
             let unlockedCount = 0;
 
             for (const key of orderedKeys) {
@@ -451,18 +369,16 @@
                     unlockedCount++;
                 }
             }
-            
+
             logDisplay.innerHTML = html;
 
             if (unlockedCount === allLogKeys.length) {
                 statusDisplay.className = 'mt-4 text-sm text-center text-yellow-500 font-bold';
                 statusDisplay.textContent = `Progress: ARCHIVE ACCESS COMPLETE (${unlockedCount}/${allLogKeys.length}).`;
-        
                 viewLogsButton.classList.remove('hidden');
             } else {
                 statusDisplay.className = 'mt-4 text-sm text-center text-gray-400';
                 statusDisplay.textContent = `Progress: ${unlockedCount} of ${allLogKeys.length} logs collected.`;
-                
                 viewLogsButton.classList.add('hidden');
             }
 
@@ -471,8 +387,7 @@
             } else {
                 clearGlitchEffects();
             }
-            
-            // Show/Hide volume slider if needed, after content is updated
+
             if (progress.log_puppet && lockScreen.style.display === 'none') {
                 volumeControlBox.classList.remove('hidden');
             }
@@ -480,161 +395,134 @@
 
         function startEerieAudio() {
             const progress = getProgress();
-            
+
             droneSynth.triggerAttack("C2");
-            noise.start(); 
-            // Ambient drone
-            droneVolume.volume.rampTo(-22, 2); 
-            // Ambient static 
-            noiseVolume.volume.rampTo(-40, 4); 
-            
-            // Check if TTS clue should be active
+            noise.start();
+            droneVolume.volume.rampTo(-22, 2);
+            noiseVolume.volume.rampTo(-40, 4);
+
             if (progress.log_source && !progress.log_take) {
-                 if (takePlayer && !takePlayer.source) {
-                    takePlayer.start();
+                if (takePlayer && !takePlayer.state) {
+                    // If a player exists but not started, will be started when gate opens
                 } else if (takeLoadAttempted) {
-                    console.log("[Audio Status] TTS clue is loaded but not yet playing (Awaiting volume sweet spot).");
+                    console.log("[Audio Status] TAKE audio loaded or attempted.");
                 }
             }
-            // Always enforce the current master volume setting
-            updateMasterVolume(volumeSlider.value); 
+            updateMasterVolume(volumeSlider.value);
         }
-        
+
         function stopEerieAudio() {
-            droneVolume.volume.rampTo(-50, 0.5); 
+            droneVolume.volume.rampTo(-50, 0.5);
             noiseVolume.volume.rampTo(-40, 0.5);
-            
+
             if (takePlayer) {
-                takePlayer.stop(); 
+                try { takePlayer.stop(); } catch (e) {}
             }
-            
+
             setTimeout(() => {
                 droneSynth.triggerRelease();
                 noise.stop();
             }, 600);
-            
-            // Mute the master when returning to lock screen
+
             masterVolume.volume.rampTo(-Infinity, 0.5);
         }
 
-        // --- MASTER VOLUME CONTROL AND CLUE GATE ---
-        function updateMasterVolume(dbString) {
-            const newVolume = parseFloat(dbString);
-            const progress = getProgress();
-            
-            volumeValueDisplay.textContent = `${newVolume.toFixed(1)} dB`;
-            
-            // 1. Control the Master Volume for all ambient sounds
-            masterVolume.volume.rampTo(newVolume, 0.05);
-
-            // 2. Control the Clue (TAKE) Volume based on the narrow dB range
-            if (progress.log_source && !progress.log_take) {
-                // Check if volume is within the sweet spot
-                if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
-                    // Mute the ambient sounds completely for maximum clarity
-                    droneVolume.volume.rampTo(-90, 0.5); 
-                    noiseVolume.volume.rampTo(-100, 0.5);
-                    // Pass the clue audio through the gate (Max volume: 0 dB)
-                    takeClueVolume.volume.rampTo(0, 0.1); 
-                } else {
-                    // Mute the clue audio
-                    takeClueVolume.volume.rampTo(-Infinity, 0.5);
-                    // Return ambient sounds to normal
-                    droneVolume.volume.rampTo(-22, 0.5); 
-                    noiseVolume.volume.rampTo(-40, 0.5); 
-                }
-            } else {
-                // If Log 3 is unlocked or Log 2 isn't, ensure the clue is fully muted
-                takeClueVolume.volume.rampTo(-Infinity, 0.1);
-            }
-        }
-        
-        // --- TTS API CALL AND AUDIO LOADING ---
+        // --- Local audio loader for TAKE and fallback ---
         async function generateAndLoadTakeAudio() {
             if (takeLoadAttempted) return;
             takeLoadAttempted = true;
-            console.log("Attempting to load ominous TTS clue audio...");
+            console.log("Loading local TAKE audio: ./audio/take.mp3");
 
-            const apiKey = ""
-            const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-tts:generateContent?key=${apiKey}`;
+            try {
+                // Use a relative path that will resolve correctly on GitHub Pages
+                const audioUrl = './audio/take.mp3'; // <-- ensure your uploaded file is at audio/take.mp3
 
-            // Prompts the model to repeat the word three times for better audibility
-            const payload = {
-                contents: [{
-                    parts: [{ text: `Say the word 'TAKE' three times, slowly, and in a deep, malevolent, and echoing tone, with a brief pause between each repetition.` }]
-                }],
-                generationConfig: {
-                    responseModalities: ["AUDIO"],
-                    speechConfig: {
-                        voiceConfig: {
-                            prebuiltVoiceConfig: { voiceName: TTS_VOICE_NAME }
-                        }
-                    }
-                },
-                model: "gemini-2.5-flash-preview-tts"
-            };
+                takePlayer = new Tone.Player({
+                    url: audioUrl,
+                    loop: true,
+                    autostart: false,
+                    playbackRate: 0.85
+                }).connect(takeClueVolume);
 
-            for (let i = 0; i < 3; i++) {
-                try {
-                    console.log(`[TTS] Fetching audio data (Attempt ${i + 1})...`);
-                    const response = await fetch(apiUrl, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify(payload)
-                    });
-
-                    // Check for HTTP errors before trying to parse the body
-                    if (!response.ok) {
-                        const errorText = await response.text();
-                        console.error(`[TTS_ERROR] HTTP status ${response.status}. Response body: ${errorText}`);
-                        throw new Error(`TTS API call failed: Status ${response.status}`);
-                    }
-                    
-                    const result = await response.json();
-                    const candidate = result?.candidates?.[0];
-                    const part = candidate?.content?.parts?.[0];
-                    const audioData = part?.inlineData?.data;
-                    const mimeType = part?.inlineData?.mimeType;
-
-                    if (audioData && mimeType && mimeType.startsWith("audio/")) {
-                        const sampleRateMatch = mimeType.match(/rate=(\d+)/);
-                        if (!sampleRateMatch) throw new Error("Could not determine sample rate.");
-                        const sampleRate = parseInt(sampleRateMatch[1], 10);
-                        
-                        const pcmData = base64ToArrayBuffer(audioData);
-                        const pcm16 = new Int16Array(pcmData);
-                        const wavBlob = pcmToWav(pcm16, sampleRate);
-                        const audioUrl = URL.createObjectURL(wavBlob);
-                        
-                        // Player connects to the Clue Volume (the gate)
-                        takePlayer = new Tone.Player({
-                            url: audioUrl,
-                            loop: true,
-                            autostart: true,
-                            playbackRate: 0.8, // Slightly slow down the playback to enhance dread
-                        }).connect(takeClueVolume); 
-
-                        console.log("[TTS] Ominous audio successfully loaded and looping.");
-                        return; // Success, exit function
-                    } else {
-                        console.error("[TTS_ERROR] Received API response structure missing audio data:", JSON.stringify(result));
-                        throw new Error("TTS response missing audio data.");
-                    }
-                } catch (error) {
-                    console.error(`[CONSOLE_ERROR] TTS API call failed (Attempt ${i + 1}):`, error);
-                    // Exponential backoff
-                    if (i < 2) await new Promise(resolve => setTimeout(resolve, Math.pow(2, i) * 1000));
+                await takePlayer.load();
+                console.log('[TAKE] local audio loaded:', audioUrl);
+            } catch (err) {
+                console.error('[TAKE] Failed to load local audio:', err);
+                takePlayer = null;
+                if (!('speechSynthesis' in window)) {
+                    console.warn('[TAKE] No speechSynthesis fallback available — add ./audio/take.mp3 to the repo.');
+                } else {
+                    console.log('[TAKE] speechSynthesis fallback is available.');
                 }
             }
-            console.error("--- TTS FAIL: The audio clue will be missing. This is likely due to CORS or a missing API Key on your hosting service. ---");
         }
 
+        function speakTakeFallback() {
+            if (!('speechSynthesis' in window)) return;
+            window.speechSynthesis.cancel();
+            const text = 'TAKE...  TAKE...  TAKE...';
+            const utter = new SpeechSynthesisUtterance(text);
+            const voices = window.speechSynthesis.getVoices();
+            const deep = voices.find(v => /male|deep|bass/i.test((v.name || '') + ' ' + (v.lang || '')));
+            if (deep) utter.voice = deep;
+            utter.rate = 0.85;
+            utter.pitch = 0.6;
+            utter.volume = 1.0;
+            window.speechSynthesis.speak(utter);
+        }
 
-        // --- GLITCH VISUAL EFFECTS ---
+        // Master volume gating and playback logic
+        function updateMasterVolume(dbString) {
+            const newVolume = parseFloat(dbString);
+            const progress = getProgress();
+            volumeValueDisplay.textContent = `${newVolume.toFixed(1)} dB`;
 
+            masterVolume.volume.rampTo(newVolume, 0.05);
+
+            if (progress.log_source && !progress.log_take) {
+                if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
+                    droneVolume.volume.rampTo(-90, 0.5);
+                    noiseVolume.volume.rampTo(-100, 0.5);
+                    takeClueVolume.volume.rampTo(0, 0.1);
+
+                    if (!takeLoadAttempted) {
+                        // The slider interaction is a user gesture; safe to request load now
+                        generateAndLoadTakeAudio();
+                    }
+
+                    if (takePlayer instanceof Tone.Player) {
+                        try {
+                            if (Tone.context.state !== 'running') Tone.start();
+                            takePlayer.start();
+                        } catch (e) {
+                            console.warn('[TAKE] could not start Tone.Player:', e);
+                            speakTakeFallback();
+                        }
+                    } else {
+                        speakTakeFallback();
+                    }
+                } else {
+                    takeClueVolume.volume.rampTo(-Infinity, 0.5);
+                    droneVolume.volume.rampTo(-22, 0.5);
+                    noiseVolume.volume.rampTo(-40, 0.5);
+
+                    if (takePlayer instanceof Tone.Player) {
+                        try { takePlayer.stop(); } catch (e) {}
+                    } else {
+                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                    }
+                }
+            } else {
+                takeClueVolume.volume.rampTo(-Infinity, 0.1);
+                if (takePlayer instanceof Tone.Player) try { takePlayer.stop(); } catch (e) {}
+                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+            }
+        }
+
+        // Glitch visuals
         function glitchText(text, charSet) {
             let glitched = '';
-            const chars = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()+*<>'; 
+            const chars = charSet || 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890!@#$%^&*()+*<>';
             for (let i = 0; i < text.length; i++) {
                 if (Math.random() < 0.1) {
                     glitched += chars[Math.floor(Math.random() * chars.length)];
@@ -645,44 +533,38 @@
             return glitched;
         }
 
-
         function applyGlitchEffects() {
-            clearGlitchEffects(); 
-            
+            clearGlitchEffects();
             const generalTargets = contentScreen.querySelectorAll('.glitch-active:not(.glitch-host)');
             const hostTargets = contentScreen.querySelectorAll('.glitch-host');
-            
-            const hostCharset = 'HOST!@#$%^&*()+*<>'; 
+
+            const hostCharset = 'HOST!@#$%^&*()+*<>';
             const takeCharset = 'T A K E !';
 
             generalTargets.forEach(el => {
                 el.dataset.originalText = el.textContent;
                 const charSet = el.textContent.includes('T A K E') ? takeCharset : null;
-
                 let interval = setInterval(() => {
-                    el.textContent = glitchText(el.dataset.originalText, charSet); 
+                    el.textContent = glitchText(el.dataset.originalText, charSet);
                 }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
             });
-            
+
             hostTargets.forEach(el => {
                 el.dataset.originalText = el.textContent;
                 let interval = setInterval(() => {
-                    el.textContent = glitchText(el.dataset.originalText, hostCharset); 
+                    el.textContent = glitchText(el.dataset.originalText, hostCharset);
                 }, JS_GLITCH_INTERVAL_MS);
                 glitchIntervals.push(interval);
             });
         }
-        
+
         function clearGlitchEffects() {
             glitchIntervals.forEach(clearInterval);
             glitchIntervals = [];
-            
             const glitchTargets = contentScreen.querySelectorAll('.glitch-active');
             glitchTargets.forEach(el => {
-                if (el.dataset.originalText) {
-                    el.textContent = el.dataset.originalText;
-                }
+                if (el.dataset.originalText) el.textContent = el.dataset.originalText;
             });
         }
     </script>
