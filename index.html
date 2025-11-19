@@ -370,6 +370,8 @@
               const p = new Tone.Player(audioBuf).connect(takeClueVolume);
               p.loop = true;
               p.playbackRate = 0.85;
+              // ensure a small dry presence and some reverb for character
+              try { takeReverb.wet.value = 0.2; } catch(e) {}
               // tone player created from AudioBuffer doesn't need load() — buffer is already present
               takePlayer = p;
               console.log('[TAKE] Tone.Player(audiobuffer) created successfully for', url);
@@ -386,6 +388,7 @@
               console.log('[TAKE] attempting Tone.Player(url) fallback for', url);
               const p2 = new Tone.Player({ url, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
               await p2.load();
+              try { takeReverb.wet.value = 0.2; } catch(e) {}
               takePlayer = p2;
               console.log('[TAKE] Tone.Player(url) loaded successfully for', url);
               stopFallbackEffects();
@@ -633,17 +636,29 @@
           // If a Tone.Player is present and buffered, route it and start it
           if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
             try {
+              // Recreate a reliable routing: keep the reverbed chain but also add a direct dry route to master.
+              // This avoids the reverb/gain staging accidentally masking the dry take.
               try { takePlayer.disconnect(); } catch (e) {}
-              takePlayer.connect(takeClueVolume);
+              // Connect to both the take chain and directly to master (dry)
+              try { takePlayer.connect(takeClueVolume); } catch (e) {}
+              try { takePlayer.connect(masterVolume); } catch (e) {}
+
+              // ensure the reverb wet is reasonable so dry signal remains clear
+              try { takeReverb.wet.value = Math.max(0, Math.min(0.4, takeReverb.wet.value || 0.2)); } catch(e){}
+
+              // restart cleanly so playback begins from start
               try { takePlayer.stop(); } catch(e) {}
               takePlayer.start(Tone.now());
-              console.log('[TAKE] started Tone.Player (gate-open)');
+              console.log('[TAKE] started Tone.Player (gate-open, dry+reverb routing)');
             } catch (err) {
               console.warn('[TAKE] error starting Tone.Player on gate-open', err);
               speakTakeFallback();
             }
           } else if (takePlayer && typeof takePlayer.play === 'function') {
             try {
+              // HTMLAudio fallback: ensure audible volume and play from start
+              try { takePlayer.pause(); takePlayer.currentTime = 0; } catch(e) {}
+              try { takePlayer.volume = 1.0; } catch(e) {}
               await takePlayer.play();
               console.log('[TAKE] started HTMLAudio takePlayer (gate-open)');
             } catch (err) {
