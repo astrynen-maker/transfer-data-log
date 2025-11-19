@@ -317,9 +317,23 @@
 
         // Robust loader: prefer ArrayBuffer->decodeAudioData->Tone.Player(audioBuffer) then fallback to other strategies.
         async function generateAndLoadTakeAudio() {
-          if (takeLoadAttempted) return;
+          // Only avoid duplicate work if we've already loaded a player successfully
+          if (takeLoadAttempted && takePlayer) return;
+
+          // mark that we've attempted at least once (but allow retries if no player)
           takeLoadAttempted = true;
           console.log("[TAKE] generateAndLoadTakeAudio: decodeAudioData-first loader");
+
+          // ensure audio context is running (requires user gesture in many browsers)
+          try {
+            if (Tone && Tone.context && Tone.context.state !== 'running') {
+              console.log('[TAKE] awaiting Tone.start() to ensure AudioContext is resumed by user gesture');
+              await Tone.start();
+            }
+          } catch (e) {
+            console.warn('[TAKE] Tone.start() failed or was blocked:', e);
+            // continue — loader will still try best-effort fallbacks
+          }
 
           const owner = 'astrynen-maker';
           const repo = 'transfer-data-log';
@@ -364,7 +378,7 @@
               startSpeechFallbackLoop = speakTakeFallback;
               return;
             } catch (decodeErr) {
-              console.warn('[TAKE] decodeAudioData -> Tone.Player(audioBuffer) failed for', url, decodeErr);
+              console.warn('[TAKE] decodeAudioData -> Tone.Player(audiobuffer) failed for', url, decodeErr);
             }
 
             // If decode approach failed, try Tone.Player(url) (may still throw in some envs)
@@ -598,7 +612,7 @@
             showLockScreen();
             updateMasterVolume(volumeSlider.value);
 
-            // preload the user's audio file
+            // preload the user's audio file (best-effort)
             generateAndLoadTakeAudio().catch(err => {
                 console.warn("[TAKE] preload failed:", err);
             });
@@ -722,7 +736,8 @@
                 try { noise.stop(); } catch (e) {}
             }, 600);
 
-            masterVolume.volume.rampTo(-Infinity, 0.5);
+            // soften the mute so tests and re-starts aren't left inaudible
+            masterVolume.volume.rampTo(-40, 0.5);
         }
 
         // Master volume gating and playback logic
@@ -735,50 +750,59 @@
 
             if (progress.log_source && !progress.log_take) {
                 if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
+                    // Quiet the ambient layers
                     droneVolume.volume.rampTo(-90, 0.5);
                     noiseVolume.volume.rampTo(-100, 0.5);
-                    takeClueVolume.volume.rampTo(0, 0.1);
+
+                    // Make the take audible at a controlled level (practical mids +2dB)
+                    takeClueVolume.volume.rampTo(-6, 0.1);
+
+                    // Ensure master is not extremely low — enforce a sensible minimum so the take is audible.
+                    const MIN_AUDIBLE_MASTER = -16;
+                    const targetMaster = Math.max(newVolume, MIN_AUDIBLE_MASTER);
+                    masterVolume.volume.rampTo(targetMaster, 0.05);
 
                     if (!takeLoadAttempted) {
                         console.log('[TAKE] loading audio on gate open (user gesture)');
                         await generateAndLoadTakeAudio();
-                    }
-
-                    // START TAKE playback (Tone.Player or HTMLAudio)
-                    try {
-                      // Tone.Player (buffer loaded)
-                      if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
-                        stopFallbackEffects();
-                        try { if (Tone.context.state !== 'running') await Tone.start(); } catch(e){}
-                        try {
-                          takePlayer.start();
-                          console.log('[TAKE] started Tone.Player takePlayer');
-                        } catch (e) {
-                          console.warn('[TAKE] takePlayer.start() failed, falling back:', e);
-                          speakTakeFallback();
+                    } else {
+                        // if already loaded, ensure buffer exists before starting
+                        if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+                            stopFallbackEffects();
+                            try { if (Tone.context.state !== 'running') await Tone.start(); } catch(e){}
+                            try {
+                                takePlayer.start(Tone.now());
+                                console.log('[TAKE] started Tone.Player takePlayer');
+                            } catch (e) {
+                                console.warn('[TAKE] takePlayer.start() failed, falling back:', e);
+                                speakTakeFallback();
+                            }
+                        } else if (takePlayer && typeof takePlayer.play === 'function' && typeof takePlayer.currentTime !== 'undefined') {
+                            try {
+                                await takePlayer.play();
+                                stopFallbackEffects();
+                                console.log('[TAKE] started HTMLAudio takePlayer');
+                            } catch (e) {
+                                console.warn('[TAKE] HTMLAudio play() blocked or failed:', e);
+                                speakTakeFallback();
+                            }
+                        } else {
+                            // If not ready, attempt to load now then start
+                            try {
+                                await generateAndLoadTakeAudio();
+                                if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+                                    takePlayer.start(Tone.now());
+                                } else if (takePlayer && typeof takePlayer.play === 'function') {
+                                    await takePlayer.play();
+                                } else {
+                                    speakTakeFallback();
+                                }
+                            } catch (e) {
+                                console.warn('[TAKE] error starting take audio after load attempt', e);
+                                speakTakeFallback();
+                            }
                         }
-                      }
-                      // HTMLMediaElement (Audio)
-                      else if (takePlayer && typeof takePlayer.play === 'function' && typeof takePlayer.currentTime !== 'undefined') {
-                        try {
-                          await takePlayer.play();
-                          stopFallbackEffects();
-                          console.log('[TAKE] started HTMLAudio takePlayer');
-                        } catch (e) {
-                          console.warn('[TAKE] HTMLAudio play() blocked or failed:', e);
-                          speakTakeFallback();
-                        }
-                      }
-                      // nothing available -> fallback
-                      else {
-                        console.log('[TAKE] no valid takePlayer available, starting speech fallback');
-                        speakTakeFallback();
-                      }
-                    } catch (err) {
-                      console.warn('[TAKE] error starting take audio, fallback to TTS:', err);
-                      try { speakTakeFallback(); } catch (e) {}
                     }
-
                 } else {
                     takeClueVolume.volume.rampTo(-Infinity, 0.5);
                     droneVolume.volume.rampTo(-22, 0.5);
