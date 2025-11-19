@@ -372,7 +372,7 @@
               p.playbackRate = 0.85;
               // tone player created from AudioBuffer doesn't need load() — buffer is already present
               takePlayer = p;
-              console.log('[TAKE] Tone.Player(audioBuffer) created successfully for', url);
+              console.log('[TAKE] Tone.Player(audiobuffer) created successfully for', url);
               stopFallbackEffects();
               // alias for backward compatibility
               startSpeechFallbackLoop = speakTakeFallback;
@@ -605,6 +605,57 @@
           }
         }
 
+        // --- NEW HELPER: start the take reliably when gate opens ---
+        async function _startTakeOnGateOpen(newVolume) {
+          // Quiet ambient layers
+          droneVolume.volume.rampTo(-90, 0.5);
+          noiseVolume.volume.rampTo(-100, 0.5);
+
+          // Make the take audible at a controlled level
+          takeClueVolume.volume.rampTo(-6, 0.1);
+
+          // Ensure master has a sensible minimum
+          const MIN_AUDIBLE_MASTER = -16;
+          const targetMaster = Math.max(newVolume, MIN_AUDIBLE_MASTER);
+          masterVolume.volume.rampTo(targetMaster, 0.05);
+
+          // Stop any fallback/TTS immediately
+          try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+          stopFallbackEffects();
+
+          // Ensure loader runs (will no-op if already loaded)
+          try {
+            await generateAndLoadTakeAudio();
+          } catch (e) {
+            console.warn('[TAKE] generateAndLoadTakeAudio() failed on gate-open', e);
+          }
+
+          // If a Tone.Player is present and buffered, route it and start it
+          if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+            try {
+              try { takePlayer.disconnect(); } catch (e) {}
+              takePlayer.connect(takeClueVolume);
+              try { takePlayer.stop(); } catch(e) {}
+              takePlayer.start(Tone.now());
+              console.log('[TAKE] started Tone.Player (gate-open)');
+            } catch (err) {
+              console.warn('[TAKE] error starting Tone.Player on gate-open', err);
+              speakTakeFallback();
+            }
+          } else if (takePlayer && typeof takePlayer.play === 'function') {
+            try {
+              await takePlayer.play();
+              console.log('[TAKE] started HTMLAudio takePlayer (gate-open)');
+            } catch (err) {
+              console.warn('[TAKE] HTMLAudio play() failed on gate-open', err);
+              speakTakeFallback();
+            }
+          } else {
+            // If no player, fall back to TTS
+            speakTakeFallback();
+          }
+        }
+
         // Init and the rest of UI logic (unchanged, but kept here)
         function initApp() {
             checkUrlForReset();
@@ -750,59 +801,8 @@
 
             if (progress.log_source && !progress.log_take) {
                 if (newVolume >= TARGET_DB_LOWER && newVolume <= TARGET_DB_UPPER) {
-                    // Quiet the ambient layers
-                    droneVolume.volume.rampTo(-90, 0.5);
-                    noiseVolume.volume.rampTo(-100, 0.5);
-
-                    // Make the take audible at a controlled level (practical mids +2dB)
-                    takeClueVolume.volume.rampTo(-6, 0.1);
-
-                    // Ensure master is not extremely low — enforce a sensible minimum so the take is audible.
-                    const MIN_AUDIBLE_MASTER = -16;
-                    const targetMaster = Math.max(newVolume, MIN_AUDIBLE_MASTER);
-                    masterVolume.volume.rampTo(targetMaster, 0.05);
-
-                    if (!takeLoadAttempted) {
-                        console.log('[TAKE] loading audio on gate open (user gesture)');
-                        await generateAndLoadTakeAudio();
-                    } else {
-                        // if already loaded, ensure buffer exists before starting
-                        if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
-                            stopFallbackEffects();
-                            try { if (Tone.context.state !== 'running') await Tone.start(); } catch(e){}
-                            try {
-                                takePlayer.start(Tone.now());
-                                console.log('[TAKE] started Tone.Player takePlayer');
-                            } catch (e) {
-                                console.warn('[TAKE] takePlayer.start() failed, falling back:', e);
-                                speakTakeFallback();
-                            }
-                        } else if (takePlayer && typeof takePlayer.play === 'function' && typeof takePlayer.currentTime !== 'undefined') {
-                            try {
-                                await takePlayer.play();
-                                stopFallbackEffects();
-                                console.log('[TAKE] started HTMLAudio takePlayer');
-                            } catch (e) {
-                                console.warn('[TAKE] HTMLAudio play() blocked or failed:', e);
-                                speakTakeFallback();
-                            }
-                        } else {
-                            // If not ready, attempt to load now then start
-                            try {
-                                await generateAndLoadTakeAudio();
-                                if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
-                                    takePlayer.start(Tone.now());
-                                } else if (takePlayer && typeof takePlayer.play === 'function') {
-                                    await takePlayer.play();
-                                } else {
-                                    speakTakeFallback();
-                                }
-                            } catch (e) {
-                                console.warn('[TAKE] error starting take audio after load attempt', e);
-                                speakTakeFallback();
-                            }
-                        }
-                    }
+                    // call helper that reliably starts the take
+                    await _startTakeOnGateOpen(newVolume);
                 } else {
                     takeClueVolume.volume.rampTo(-Infinity, 0.5);
                     droneVolume.volume.rampTo(-22, 0.5);
