@@ -117,7 +117,7 @@
                     MASTER ARCHIVE VOLUME:
                     <span id="volume-value" class="text-yellow-400">-10.0 dB</span>
                 </label>
-                <input type="range" id="master-volume-slider" min="-100" max="-10" step="5" value="-10"
+                <input type="range" id="master-volume-slider" min="-100" max="-10" step="1" value="-10"
                        class="w-full h-2 bg-green-700 rounded-lg appearance-none cursor-pointer"
                        oninput="updateMasterVolume(this.value)">
                 <p class="text-xs text-gray-500 mt-2 text-right">0.0 dB (Max) to -100.0 dB (Mute)</p>
@@ -147,7 +147,10 @@
 
         // Tone.js setup
         const masterVolume = new Tone.Volume(-10).toDestination();
-        const droneVolume = new Tone.Volume(-40).connect(masterVolume);
+
+        // Increased ambient base levels so they remain audible at lower master settings (e.g., -50 dB).
+        // If this is too loud at higher master volumes, we can make this conditional based on master or add attenuation.
+        const droneVolume = new Tone.Volume(-6).connect(masterVolume);   // was -40, now -6
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
             envelope: { attack: 4, decay: 0.1, sustain: 1, release: 0.5 }
@@ -157,12 +160,13 @@
 
         const noise = new Tone.Noise("white");
         const noiseFilter = new Tone.Filter(300, "lowpass").connect(masterVolume);
-        const noiseVolume = new Tone.Volume(-40).connect(noiseFilter);
+        const noiseVolume = new Tone.Volume(-8).connect(noiseFilter);   // was -40, now -8
         noise.connect(noiseVolume);
 
         // Clue audio setup
-        const TARGET_DB_LOWER = -37;
-        const TARGET_DB_UPPER = -27;
+        // Gate now only at -60 dB (both lower and upper set to -60)
+        const TARGET_DB_LOWER = -60;
+        const TARGET_DB_UPPER = -60;
 
         // takePlayer can be:
         // - a Tone.Player instance (preferred)
@@ -217,7 +221,7 @@
     **INCIDENT REPORT (06-01-23):** A-01 is no longer present in containment. The exit was clean, secured from the inside, with no signs of force. Not a single trace or evidence was left behind of the entity. The entity has ESCAPED. Our creation is gone. A new, autonomous consciousness is on the loose.
 </p>
 <p class="mt-4 text-lg text-dark-glow-red font-bold">
-    RUN WHILE YOU STILL CAN
+    **[FINAL FRAGMENT]** \\text{I can feel it... it's going to }<span class="glitch-active" data-char-set="T A K E !">T A K E</span>\\text{ everything.}
 </p>
 </div>
 `,
@@ -614,13 +618,11 @@
           droneVolume.volume.rampTo(-90, 0.5);
           noiseVolume.volume.rampTo(-100, 0.5);
 
-          // Make the take audible at a controlled level
-          takeClueVolume.volume.rampTo(-6, 0.1);
+          // Make the take audible relative to master by setting take's own gain to 0 dB (no attenuation).
+          takeClueVolume.volume.rampTo(0, 0.1);
 
-          // Ensure master has a sensible minimum
-          const MIN_AUDIBLE_MASTER = -16;
-          const targetMaster = Math.max(newVolume, MIN_AUDIBLE_MASTER);
-          masterVolume.volume.rampTo(targetMaster, 0.05);
+          // Ensure master is set exactly to the slider value (the gate is exactly at -60 dB)
+          masterVolume.volume.rampTo(newVolume, 0.05);
 
           // Stop any fallback/TTS immediately
           try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
@@ -637,9 +639,7 @@
           if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
             try {
               // Recreate a reliable routing: keep the reverbed chain but also add a direct dry route to master.
-              // This avoids the reverb/gain staging accidentally masking the dry take.
               try { takePlayer.disconnect(); } catch (e) {}
-              // Connect to both the take chain and directly to master (dry)
               try { takePlayer.connect(takeClueVolume); } catch (e) {}
               try { takePlayer.connect(masterVolume); } catch (e) {}
 
@@ -774,8 +774,10 @@
 
             droneSynth.triggerAttack("C2");
             noise.start();
-            droneVolume.volume.rampTo(-22, 2);
-            noiseVolume.volume.rampTo(-40, 4);
+
+            // ramp ambient layers to the louder defaults so they remain audible at lower master values (e.g. -50 dB).
+            droneVolume.volume.rampTo(-6, 2);   // louder ambient target
+            noiseVolume.volume.rampTo(-8, 4);   // louder noise target
 
             if (progress.log_source && !progress.log_take) {
                 if (takePlayer && !takePlayer.state) {
@@ -820,8 +822,8 @@
                     await _startTakeOnGateOpen(newVolume);
                 } else {
                     takeClueVolume.volume.rampTo(-Infinity, 0.5);
-                    droneVolume.volume.rampTo(-22, 0.5);
-                    noiseVolume.volume.rampTo(-40, 0.5);
+                    droneVolume.volume.rampTo(-6, 0.5);
+                    noiseVolume.volume.rampTo(-8, 0.5);
 
                     if (takePlayer instanceof Tone.Player) {
                         try { takePlayer.stop(); } catch (e) {}
