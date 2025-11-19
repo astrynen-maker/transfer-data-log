@@ -25,8 +25,8 @@
 
         .text-dark-glow-red {
             color: #ff3333;
-            text-shadow: 0 0 5px #ff3333, 
-                         0 0 10px #cc0000, 
+            text-shadow: 0 0 5px #ff3333,
+                         0 0 10px #cc0000,
                          0 0 20px #990000;
         }
 
@@ -161,7 +161,6 @@
         noise.connect(noiseVolume);
 
         // Clue audio setup
-        const TTS_VOICE_NAME = "Charon";
         const TARGET_DB_LOWER = -37;
         const TARGET_DB_UPPER = -27;
 
@@ -172,6 +171,11 @@
 
         let takeLoadAttempted = false;
 
+        // Fallback loop control and nodes
+        let fallbackLoopActive = false;
+        let fallbackLoopId = null;
+        let fallbackDrone = { vol: null, sub: null, grunt: null, noise: null, delay: null, filterLFO: null, detuneLFO: null };
+
         // App data
         const JS_GLITCH_INTERVAL_MS = 250;
         let attempts = 0;
@@ -180,6 +184,13 @@
         const logMap = { "PUPPET": "log_puppet", "HOST": "log_source", "TAKE": "log_take" };
         const allLogKeys = Object.values(logMap);
         const storageKey = 'a01_unlocked_logs';
+
+        // Reset progress on refresh/close
+        ['beforeunload', 'pagehide'].forEach(evt =>
+          window.addEventListener(evt, () => {
+            try { sessionStorage.removeItem(storageKey); } catch (e) {}
+          })
+        );
 
         const logContents = {
             log_puppet: `
@@ -225,6 +236,7 @@
 `,
         };
 
+        // DOM refs (script placed at document end so these exist)
         const passwordInput = document.getElementById('password');
         const lockScreen = document.getElementById('lock-screen');
         const contentScreen = document.getElementById('content-screen');
@@ -276,7 +288,6 @@
             if (progress.log_puppet) {
                 volumeControlBox.classList.remove('hidden');
                 if (progress.log_source && !progress.log_take && !takeLoadAttempted) {
-                    // Load the local TAKE audio when viewing logs in the clue window
                     generateAndLoadTakeAudio();
                 }
             } else {
@@ -301,11 +312,245 @@
             clearGlitchEffects();
         }
 
+        // Robust loader that fetches as Blob and uses an object URL for Tone.Player.
+        // This replaces the previous generateAndLoadTakeAudio implementation.
+        async function generateAndLoadTakeAudio() {
+          if (takeLoadAttempted) return;
+          takeLoadAttempted = true;
+          console.log("[TAKE] generateAndLoadTakeAudio: trying blob/object-URL loader");
+
+          const owner = 'astrynen-maker';
+          const repo = 'transfer-data-log';
+          const branch = 'main';
+          const candidates = [
+            './audio/take.mp3',
+            `https://${owner}.github.io/${repo}/audio/take.mp3`,
+            `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/audio/take.mp3`
+          ];
+
+          for (const url of candidates) {
+            console.log('[TAKE] trying URL:', url);
+            try {
+              const resp = await fetch(url, { method: 'GET', mode: 'cors' });
+              console.log('[TAKE] fetch', url, 'status', resp.status);
+              if (!resp.ok) {
+                console.warn('[TAKE] fetch not ok for', url);
+                continue;
+              }
+
+              // Get the file as a blob (safer for odd Content-Type / MP3 variants)
+              const blob = await resp.blob();
+              const objUrl = URL.createObjectURL(blob);
+              console.log('[TAKE] created object URL from blob');
+
+              try {
+                // create player from object URL and connect to takeClueVolume
+                takePlayer = new Tone.Player({
+                  url: objUrl,
+                  loop: true,
+                  autostart: false,
+                  playbackRate: 0.85
+                }).connect(takeClueVolume);
+
+                console.log('[TAKE] Tone.Player created (object URL), loading buffer...');
+                await takePlayer.load();
+
+                console.log('[TAKE] Tone.Player loaded successfully from', url);
+
+                // revoke the object URL now that the player loaded
+                try { URL.revokeObjectURL(objUrl); } catch (e) {}
+
+                // stop any running fallback
+                stopFallbackEffects();
+
+                // success — keep player ready
+                return;
+              } catch (playerErr) {
+                console.warn('[TAKE] Tone.Player load failed for object URL (trying next):', playerErr);
+                // cleanup and try next candidate
+                try { takePlayer.dispose && takePlayer.dispose(); } catch (e) {}
+                takePlayer = null;
+                try { URL.revokeObjectURL(objUrl); } catch (e) {}
+                continue;
+              }
+            } catch (err) {
+              console.warn('[TAKE] fetch failed for', url, err);
+              continue;
+            }
+          }
+
+          // All attempts failed — fall back to speech
+          console.warn('[TAKE] All candidate URLs failed; falling back to speech fallback.');
+          startSpeechFallbackLoop();
+        }
+
+        // stop the fallback: clear intervals, cancel speech, fade/stop drone nodes
+        function stopFallbackEffects() {
+            if (fallbackLoopActive) {
+                fallbackLoopActive = false;
+                if (fallbackLoopId) {
+                    clearInterval(fallbackLoopId);
+                    fallbackLoopId = null;
+                }
+                try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+                try {
+                    if (fallbackDrone.vol) {
+                        fallbackDrone.vol.volume.rampTo(-80, 0.8);
+                        setTimeout(() => {
+                            try {
+                                if (fallbackDrone.sub) fallbackDrone.sub.stop();
+                                if (fallbackDrone.grunt) fallbackDrone.grunt.stop();
+                                if (fallbackDrone.noise) fallbackDrone.noise.stop && fallbackDrone.noise.stop();
+                                if (fallbackDrone.delay) fallbackDrone.delay.dispose && fallbackDrone.delay.dispose();
+                            } catch (e) {}
+                        }, 900);
+                    }
+                } catch (e) {}
+                fallbackDrone = { vol: null, sub: null, grunt: null, noise: null, delay: null, filterLFO: null, detuneLFO: null };
+                console.log('[TAKE] fallback effects stopped');
+            }
+        }
+
+        // monster-like fallback: growl bed + slow normal "take" speech, looped and very quiet
+        async function speakTakeFallback() {
+            // prefer the real file
+            if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+                try { takePlayer.start(); } catch (e) {}
+                return;
+            }
+            if (fallbackLoopActive) return;
+
+            fallbackLoopActive = true;
+            console.log('[TAKE] starting monster fallback loop');
+
+            // cancel queued speech
+            try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch (e) {}
+
+            // ensure voices loaded (non-blocking)
+            let voices = (window.speechSynthesis && window.speechSynthesis.getVoices) ? window.speechSynthesis.getVoices() : [];
+            if ((!voices || voices.length === 0) && 'onvoiceschanged' in window && window.speechSynthesis) {
+                window.speechSynthesis.onvoiceschanged = () => {
+                    voices = window.speechSynthesis.getVoices();
+                };
+            }
+            const deepVoice = (voices || []).find(v => /Google|Microsoft|Samantha|Alex|en-US|male|deep|bass/i.test((v.name || '') + ' ' + (v.lang || ''))) || (voices && voices[0]) || null;
+
+            // Build quiet growl bed using Tone.js
+            try {
+                if (Tone && Tone.context && Tone.context.state !== 'running') {
+                    await Tone.start();
+                }
+
+                const vol = new Tone.Volume(-72).connect(takeClueVolume); // base extremely quiet
+                const sub = new Tone.Oscillator(36, 'sine').connect(vol);
+                const grunt = new Tone.Oscillator(78, 'sawtooth').connect(vol);
+
+                // bandpass filter to make the growl vocal-like
+                const growlFilter = new Tone.Filter(120, 'bandpass').connect(vol);
+                sub.connect(growlFilter);
+                grunt.connect(growlFilter);
+
+                // filtered noise for breathiness
+                const pink = new Tone.Noise('pink');
+                const pinkFilt = new Tone.Filter(220, 'lowpass').connect(growlFilter);
+                pink.connect(pinkFilt);
+
+                // mild distortion and delay for texture
+                const dist = new Tone.Distortion(0.6).connect(growlFilter);
+                const fbDelay = new Tone.FeedbackDelay('8n', 0.45).connect(growlFilter);
+                growlFilter.connect(dist);
+                dist.connect(fbDelay);
+
+                const detuneLFO = new Tone.LFO(0.08, -7, 7).start();
+                const filterLFO = new Tone.LFO(0.04, 60, 200).start();
+                detuneLFO.connect(sub.detune);
+                detuneLFO.connect(grunt.detune);
+                filterLFO.connect(growlFilter.frequency);
+
+                sub.start();
+                grunt.start();
+                pink.start();
+
+                // slow, very quiet fade in
+                vol.volume.rampTo(-52, 0.2);
+                setTimeout(() => vol.volume.rampTo(-48, 0.9), 260);
+
+                fallbackDrone.vol = vol;
+                fallbackDrone.sub = sub;
+                fallbackDrone.grunt = grunt;
+                fallbackDrone.noise = pink;
+                fallbackDrone.delay = fbDelay;
+                fallbackDrone.filterLFO = filterLFO;
+                fallbackDrone.detuneLFO = detuneLFO;
+            } catch (e) {
+                console.warn('[TAKE] growl bed failed:', e);
+            }
+
+            // Helper: speak one normal "take" (plain spelling) slowly and softly
+            function speakOne() {
+                try {
+                    if (!('speechSynthesis' in window)) return;
+                    window.speechSynthesis.cancel();
+
+                    const u = new SpeechSynthesisUtterance('take');
+                    if (deepVoice) u.voice = deepVoice;
+                    // slower and slightly lower but not overly exotic
+                    u.rate = 0.82;   // moderately slow (not robotic)
+                    u.pitch = 0.55;  // slightly low
+                    try { u.volume = 0.6; } catch (e) {}
+
+                    u.onstart = () => {
+                        // tiny swell when voice starts
+                        try {
+                            if (fallbackDrone.vol) {
+                                fallbackDrone.vol.volume.cancelScheduledValues();
+                                fallbackDrone.vol.volume.rampTo(-44 + Math.random() * 2, 0.04);
+                                setTimeout(() => fallbackDrone.vol.volume.rampTo(-50, 0.9), 220);
+                            }
+                        } catch (e) {}
+                        console.log('[TAKE] fallback utterance start');
+                    };
+                    u.onend = () => {
+                        console.log('[TAKE] fallback utterance end');
+                    };
+
+                    window.speechSynthesis.speak(u);
+                } catch (err) {
+                    console.warn('[TAKE] speakOne failed:', err);
+                }
+            }
+
+            // Start immediately, then loop slowly with some random jitter
+            speakOne();
+            fallbackLoopId = setInterval(() => {
+                if (!fallbackLoopActive) {
+                    clearInterval(fallbackLoopId);
+                    fallbackLoopId = null;
+                    return;
+                }
+                // If real file becomes available, stop fallback and play it
+                if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+                    stopFallbackEffects();
+                    try { takePlayer.start(); } catch (e) {}
+                    return;
+                }
+                speakOne();
+            }, 4200 + Math.floor(Math.random() * 1600)); // 4.2s + jitter
+
+            console.log('[TAKE] monster fallback loop active (quiet, slow, normal "take")');
+        }
+
+        // initialize app and preload audio
         function initApp() {
             checkUrlForReset();
             updateDisplay();
             showLockScreen();
             updateMasterVolume(volumeSlider.value);
+
+            // preload the user's audio file
+            generateAndLoadTakeAudio().catch(err => {
+                console.warn("[TAKE] preload failed:", err);
+            });
         }
 
         async function checkPassword() {
@@ -403,7 +648,7 @@
 
             if (progress.log_source && !progress.log_take) {
                 if (takePlayer && !takePlayer.state) {
-                    // If a player exists but not started, will be started when gate opens
+                    // player exists but not started yet
                 } else if (takeLoadAttempted) {
                     console.log("[Audio Status] TAKE audio loaded or attempted.");
                 }
@@ -419,6 +664,9 @@
                 try { takePlayer.stop(); } catch (e) {}
             }
 
+            // ensure fallback stops
+            stopFallbackEffects();
+
             setTimeout(() => {
                 droneSynth.triggerRelease();
                 noise.stop();
@@ -427,52 +675,8 @@
             masterVolume.volume.rampTo(-Infinity, 0.5);
         }
 
-        // --- Local audio loader for TAKE and fallback ---
-        async function generateAndLoadTakeAudio() {
-            if (takeLoadAttempted) return;
-            takeLoadAttempted = true;
-            console.log("Loading local TAKE audio: ./audio/take.mp3");
-
-            try {
-                // Use a relative path that will resolve correctly on GitHub Pages
-                const audioUrl = './audio/take.mp3'; // <-- ensure your uploaded file is at audio/take.mp3
-
-                takePlayer = new Tone.Player({
-                    url: audioUrl,
-                    loop: true,
-                    autostart: false,
-                    playbackRate: 0.85
-                }).connect(takeClueVolume);
-
-                await takePlayer.load();
-                console.log('[TAKE] local audio loaded:', audioUrl);
-            } catch (err) {
-                console.error('[TAKE] Failed to load local audio:', err);
-                takePlayer = null;
-                if (!('speechSynthesis' in window)) {
-                    console.warn('[TAKE] No speechSynthesis fallback available — add ./audio/take.mp3 to the repo.');
-                } else {
-                    console.log('[TAKE] speechSynthesis fallback is available.');
-                }
-            }
-        }
-
-        function speakTakeFallback() {
-            if (!('speechSynthesis' in window)) return;
-            window.speechSynthesis.cancel();
-            const text = 'TAKE...  TAKE...  TAKE...';
-            const utter = new SpeechSynthesisUtterance(text);
-            const voices = window.speechSynthesis.getVoices();
-            const deep = voices.find(v => /male|deep|bass/i.test((v.name || '') + ' ' + (v.lang || '')));
-            if (deep) utter.voice = deep;
-            utter.rate = 0.85;
-            utter.pitch = 0.6;
-            utter.volume = 1.0;
-            window.speechSynthesis.speak(utter);
-        }
-
         // Master volume gating and playback logic
-        function updateMasterVolume(dbString) {
+        async function updateMasterVolume(dbString) {
             const newVolume = parseFloat(dbString);
             const progress = getProgress();
             volumeValueDisplay.textContent = `${newVolume.toFixed(1)} dB`;
@@ -486,19 +690,21 @@
                     takeClueVolume.volume.rampTo(0, 0.1);
 
                     if (!takeLoadAttempted) {
-                        // The slider interaction is a user gesture; safe to request load now
-                        generateAndLoadTakeAudio();
+                        console.log('[TAKE] loading audio on gate open (user gesture)');
+                        await generateAndLoadTakeAudio();
                     }
 
-                    if (takePlayer instanceof Tone.Player) {
+                    if (takePlayer instanceof Tone.Player && takePlayer.buffer) {
+                        stopFallbackEffects();
+                        try { if (Tone.context.state !== 'running') await Tone.start(); } catch(e){}
                         try {
-                            if (Tone.context.state !== 'running') Tone.start();
                             takePlayer.start();
                         } catch (e) {
-                            console.warn('[TAKE] could not start Tone.Player:', e);
+                            console.warn('[TAKE] takePlayer start failed, using fallback:', e);
                             speakTakeFallback();
                         }
                     } else {
+                        console.log('[TAKE] takePlayer not available, starting fallback');
                         speakTakeFallback();
                     }
                 } else {
@@ -509,13 +715,15 @@
                     if (takePlayer instanceof Tone.Player) {
                         try { takePlayer.stop(); } catch (e) {}
                     } else {
-                        if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                        try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e){}
                     }
+                    stopFallbackEffects();
                 }
             } else {
                 takeClueVolume.volume.rampTo(-Infinity, 0.1);
                 if (takePlayer instanceof Tone.Player) try { takePlayer.stop(); } catch (e) {}
-                if ('speechSynthesis' in window) window.speechSynthesis.cancel();
+                try { if ('speechSynthesis' in window) window.speechSynthesis.cancel(); } catch(e){}
+                stopFallbackEffects();
             }
         }
 
