@@ -148,7 +148,7 @@
         // Tone.js setup
         const masterVolume = new Tone.Volume(-10).toDestination();
 
-        // Ambient defaults (kept louder so audible around -50 dB)
+        // Ambient defaults
         const droneVolume = new Tone.Volume(-6).connect(masterVolume);
         const droneSynth = new Tone.Synth({
             oscillator: { type: "square" },
@@ -357,7 +357,7 @@
               const p = new Tone.Player(audioBuf).connect(takeClueVolume);
               p.loop = true;
               p.playbackRate = 0.85;
-              try { takeReverb.wet.value = 0.2; } catch(e) {}
+              try { takeReverb.wet.value = 0.15; } catch(e) {}
               takePlayer = p;
               console.log('[TAKE] Tone.Player(audiobuffer) created successfully for', url);
               stopFallbackEffects();
@@ -371,7 +371,7 @@
               console.log('[TAKE] attempting Tone.Player(url) fallback for', url);
               const p2 = new Tone.Player({ url, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
               await p2.load();
-              try { takeReverb.wet.value = 0.2; } catch(e) {}
+              try { takeReverb.wet.value = 0.15; } catch(e) {}
               takePlayer = p2;
               console.log('[TAKE] Tone.Player(url) loaded successfully for', url);
               stopFallbackEffects();
@@ -568,24 +568,24 @@
           }
         }
 
-        // --- NEW HELPER: start the take reliably when gate opens with auto-compensation ---
+        // --- NEW HELPER: start the take reliably when gate opens with stronger auto-compensation ---
         async function _startTakeOnGateOpen(newVolume) {
           // Quiet ambient layers
           droneVolume.volume.rampTo(-90, 0.5);
           noiseVolume.volume.rampTo(-100, 0.5);
 
-          // Auto-compensation: pick a safe audible target and compensate take gain so overall output is audible.
-          const DESIRED_OUTPUT_DB = -24; // chosen safe audible target
+          // Auto-compensation: stronger audible target for clarity at very low master settings.
+          const DESIRED_OUTPUT_DB = -12; // louder target so take is clearly audible
           const currentMasterDb = (masterVolume && masterVolume.volume && typeof masterVolume.volume.value === 'number') ? masterVolume.volume.value : newVolume;
           let compensationDb = DESIRED_OUTPUT_DB - currentMasterDb;
-          // clamp compensation to a safe range to avoid extreme boosts
-          const MAX_COMP_DB = 30;
-          const MIN_COMP_DB = -30;
+          // clamp compensation to avoid insane boosts but allow larger positive boosts when master is very low
+          const MAX_COMP_DB = 48; // allow up to +48 dB
+          const MIN_COMP_DB = -40;
           compensationDb = Math.max(MIN_COMP_DB, Math.min(MAX_COMP_DB, compensationDb));
           console.log('[TAKE] gate compensationDb', compensationDb, 'master', currentMasterDb, 'desiredOut', DESIRED_OUTPUT_DB);
-          takeClueVolume.volume.rampTo(compensationDb, 0.1);
+          takeClueVolume.volume.rampTo(compensationDb, 0.06);
 
-          // Ensure master has the slider value (gate is exactly at -60)
+          // Ensure master is set exactly to the slider value (gate is exactly at -60)
           masterVolume.volume.rampTo(newVolume, 0.05);
 
           // Stop any fallback/TTS immediately
@@ -606,7 +606,7 @@
               try { takePlayer.connect(takeClueVolume); } catch (e) {}
               try { takePlayer.connect(masterVolume); } catch (e) {}
 
-              try { takeReverb.wet.value = Math.max(0, Math.min(0.4, takeReverb.wet.value || 0.2)); } catch(e){}
+              try { takeReverb.wet.value = Math.max(0, Math.min(0.35, takeReverb.wet.value || 0.15)); } catch(e){}
 
               try { takePlayer.stop(); } catch(e) {}
               takePlayer.start(Tone.now());
