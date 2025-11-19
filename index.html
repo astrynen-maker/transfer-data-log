@@ -315,33 +315,30 @@
             clearGlitchEffects();
         }
 
-        // Speech fallback alias (backwards compatibility)
-        // Some older code paths expect startSpeechFallbackLoop — alias to speakTakeFallback which is defined later.
-        let startSpeechFallbackLoop = null;
-
-        // Robust loader that tries multiple strategies (direct URL, blob/objectURL, HTMLAudio)
+        // Robust loader: prefer ArrayBuffer->decodeAudioData->Tone.Player(audioBuffer) then fallback to other strategies.
         async function generateAndLoadTakeAudio() {
           if (takeLoadAttempted) return;
           takeLoadAttempted = true;
-          console.log("[TAKE] generateAndLoadTakeAudio: trying multiple loading strategies");
+          console.log("[TAKE] generateAndLoadTakeAudio: decodeAudioData-first loader");
 
           const owner = 'astrynen-maker';
           const repo = 'transfer-data-log';
           const branch = 'main';
           const candidates = [
-            './audio/take.mp3',
             `https://${owner}.github.io/${repo}/audio/take.mp3`,
+            './audio/take.mp3',
             `https://raw.githubusercontent.com/${owner}/${repo}/${branch}/audio/take.mp3`
           ];
 
           for (const url of candidates) {
             console.log('[TAKE] trying candidate url:', url);
             // Quick reachability test
+            let resp;
             try {
-              const r = await fetch(url, { method: 'GET', mode: 'cors' });
-              console.log('[TAKE] fetch', url, '->', r.status);
-              if (!r.ok) {
-                console.warn('[TAKE] candidate returned non-ok status:', r.status);
+              resp = await fetch(url, { method: 'GET', mode: 'cors' });
+              console.log('[TAKE] fetch', url, '->', resp.status);
+              if (!resp.ok) {
+                console.warn('[TAKE] candidate returned non-ok status:', resp.status);
                 continue;
               }
             } catch (err) {
@@ -349,58 +346,52 @@
               continue;
             }
 
-            // 1) Try to create a Tone.Player directly from the URL (preserves extension)
+            // Try decodeAudioData (ArrayBuffer -> AudioBuffer -> Tone.Player(AudioBuffer))
             try {
-              console.log('[TAKE] attempting Tone.Player(url) for', url);
-              const p = new Tone.Player({ url, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
-              await p.load();
-              console.log('[TAKE] Tone.Player(url) loaded successfully from', url);
+              const ab = await resp.arrayBuffer();
+              console.log('[TAKE] arrayBuffer length', ab.byteLength);
+              const audioBuf = await Tone.context.decodeAudioData(ab);
+              console.log('[TAKE] decoded AudioBuffer, duration:', audioBuf.duration);
+              // create Tone.Player directly from decoded AudioBuffer
+              const p = new Tone.Player(audioBuf).connect(takeClueVolume);
+              p.loop = true;
+              p.playbackRate = 0.85;
+              // tone player created from AudioBuffer doesn't need load() — buffer is already present
               takePlayer = p;
+              console.log('[TAKE] Tone.Player(audioBuffer) created successfully for', url);
               stopFallbackEffects();
-              // ensure alias exists
+              // alias for backward compatibility
               startSpeechFallbackLoop = speakTakeFallback;
               return;
-            } catch (err) {
-              console.warn('[TAKE] Tone.Player(url) failed for', url, err);
+            } catch (decodeErr) {
+              console.warn('[TAKE] decodeAudioData -> Tone.Player(audioBuffer) failed for', url, decodeErr);
             }
 
-            // 2) Try fetch->blob->objectURL -> Tone.Player
+            // If decode approach failed, try Tone.Player(url) (may still throw in some envs)
             try {
-              console.log('[TAKE] attempting blob -> objectURL -> Tone.Player for', url);
-              const resp = await fetch(url, { method: 'GET', mode: 'cors' });
-              if (!resp.ok) throw new Error('fetch not ok: ' + resp.status);
-              const blob = await resp.blob();
-              const objUrl = URL.createObjectURL(blob);
-              try {
-                const p2 = new Tone.Player({ url: objUrl, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
-                await p2.load();
-                console.log('[TAKE] Tone.Player(objectURL) loaded successfully from', url);
-                try { URL.revokeObjectURL(objUrl); } catch (e) {}
-                takePlayer = p2;
-                stopFallbackEffects();
-                startSpeechFallbackLoop = speakTakeFallback;
-                return;
-              } catch (playerErr) {
-                console.warn('[TAKE] Tone.Player(objectURL) failed for', url, playerErr);
-                try { URL.revokeObjectURL(objUrl); } catch (e) {}
-                try { p2 && p2.dispose && p2.dispose(); } catch (e) {}
-              }
-            } catch (blobErr) {
-              console.warn('[TAKE] blob/objectURL approach failed for', url, blobErr);
+              console.log('[TAKE] attempting Tone.Player(url) fallback for', url);
+              const p2 = new Tone.Player({ url, loop: true, autostart: false, playbackRate: 0.85 }).connect(takeClueVolume);
+              await p2.load();
+              takePlayer = p2;
+              console.log('[TAKE] Tone.Player(url) loaded successfully for', url);
+              stopFallbackEffects();
+              startSpeechFallbackLoop = speakTakeFallback;
+              return;
+            } catch (playerErr) {
+              console.warn('[TAKE] Tone.Player(url) failed for', url, playerErr);
             }
 
-            // 3) Final attempt with plain HTMLAudio element
+            // Next fallback: HTMLAudio element
             try {
               console.log('[TAKE] attempting HTMLAudio fallback for', url);
               const audio = new Audio(url);
               audio.loop = true;
               audio.preload = 'auto';
-              // try to play once to test (may be blocked without user gesture)
               try {
                 await audio.play();
                 audio.pause();
               } catch (playErr) {
-                console.log('[TAKE] HTMLAudio play test likely blocked (no gesture) — keeping audio element for later', playErr);
+                console.log('[TAKE] HTMLAudio play test blocked (no gesture) — keeping ready', playErr);
               }
               takePlayer = audio;
               console.log('[TAKE] HTMLAudio fallback ready for', url);
@@ -412,7 +403,7 @@
             }
           }
 
-          // All attempts failed — use TTS fallback
+          // All attempts failed — use the TTS fallback
           console.warn('[TAKE] All candidate URL attempts failed — using speech fallback');
           try { speakTakeFallback(); } catch (e) { console.warn('[TAKE] speakTakeFallback call failed', e); }
         }
@@ -573,15 +564,15 @@
             console.log('[TAKE] monster fallback loop active (quiet, slow, normal "take")');
         }
 
-        // Backwards-compatible alias to avoid ReferenceError in older calls
-        startSpeechFallbackLoop = speakTakeFallback;
+        // Backwards-compatible alias (some code may call startSpeechFallbackLoop)
+        let startSpeechFallbackLoop = speakTakeFallback;
 
         // Stop all TAKE-layer playback and fallback (Tone.Player or HTMLAudio)
         function stopAllTakeAudio() {
           try {
-            // Stop grain loop if any (not used here but kept safe)
+            // Stop any grain loop (if present)
             try { stopGrainLoop && stopGrainLoop(); } catch(e) {}
-            // HTMLAudio element stop
+            // If HTMLAudio fallback is used
             if (takePlayer && typeof takePlayer.pause === 'function' && typeof takePlayer.currentTime !== 'undefined') {
               try { takePlayer.pause(); takePlayer.currentTime = 0; } catch (e) {}
             }
@@ -589,11 +580,10 @@
             if (takePlayer instanceof Tone.Player) {
               try { takePlayer.stop(); } catch (e) {}
             }
-            // Dispose Tone.Player if available
             try { if (takePlayer && takePlayer.dispose) takePlayer.dispose(); } catch (e) {}
             takePlayer = null;
 
-            // Fade out volumes (if any)
+            // Fade some volumes safely
             try { droneVolume.volume.rampTo(-50, 0.4); } catch(e){}
             try { noiseVolume.volume.rampTo(-40, 0.4); } catch(e){}
           } catch(e){
@@ -601,7 +591,7 @@
           }
         }
 
-        // initialize app and preload audio
+        // Init and the rest of UI logic (unchanged, but kept here)
         function initApp() {
             checkUrlForReset();
             updateDisplay();
